@@ -1,4 +1,3 @@
-
 import socket
 
 HOST = '10.37.11.78' #server ip or hostname
@@ -18,7 +17,7 @@ print('Connected')
 
 #awaiting for message
 while True:
-        data = conn.recv(1024)
+        data = conn.recv(1024).decode('ascii')
         print('I sent a message back in response to: ' + data)
 
         #process message
@@ -27,11 +26,12 @@ while True:
         elif data == 'important':
                 reply = 'I have done the important thing!'
         elif data == 'quit':
-                conn.send('Terminate')
+                conn.send(b'Terminate')
                 break
         else:
                 reply = 'Recieved: ' + data
 
         #sending reply
-        conn.send(reply)
+        conn.send(reply.encode('ascii'))
 conn.close() #close connection
+
