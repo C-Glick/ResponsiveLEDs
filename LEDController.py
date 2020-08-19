@@ -8,10 +8,16 @@ import time #sleep command
 import socket #lib for socket communication to server
 import queue #for queue data structure
 
+#global constants
+LED_COUNT = 300 #60led/M 5M strip
+LED_BRIGHTNESS = 255
+
+
 #global queue to hold commands to send to the server
 #TODO: prioritize real time, throw out commands if falling behind too much
+
+#to send command, add the method to the queue as a string
 commandBuffer = queue.Queue(0)
-commandBuffer.put("test")
 
 
 #thread for communication 
@@ -28,28 +34,27 @@ class CommThread (threading.Thread):
     
     def run(self):
         print ("Starting " + self.name)
-        print ("Starting communicating...")
+        print ("Starting communication...")
         self.socket.connect((self.host, self.port))
         while True:
-            try:
-                #FIXME: sending multiple commands at a time, need a way to separate commands when sending, space between commands? semicolon?
-                command = commandBuffer.get()
-            except queue.Empty:
-                print("commandBuffer empty")
-                continue
-
+            command = commandBuffer.get()
+            
             #command to reconnect to server
-            if command == "reconnect":
+            if "reconnect" in command:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((self.host, self.port))
                 continue
-            
-            #send the command to the server
-            self.socket.send(command.encode('ascii'))
-            
             #special command to close the connection
-            if command == "close":
+            elif "close" in command:
+                #send the command to the server
+                self.socket.send(b'close')
                 break
+            else:
+                self.socket.send(command.encode('ascii'))
+
+            #wait for a return message before sending the next command
+            reply = self.socket.recv(256)
+
         self.socket.close()
         print ("Exiting " + self.name)
 
@@ -67,8 +72,8 @@ class LightThread (threading.Thread):
         while True:
             self.i = self.i + 1
             print ("processing lights...")
-            commandBuffer.put("test%d" % (self.i))
-            time.sleep(.001)
+            commandBuffer.put("print('printing from string %d')" % (self.i))
+            time.sleep(1)
 
         print ("Exiting " + self.name)
 
@@ -100,7 +105,7 @@ icon.menu = menu(
         checked=lambda item: state))
 
 
-commThread = CommThread(1, "commThread1", "10.37.11.78",55555)
+commThread = CommThread(1, "commThread1", "101fdisplay.lib.iastate.edu",55555)
 lightThread = LightThread(2, "lightThread1", commThread)
 
 commThread.start()
