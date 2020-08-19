@@ -18,20 +18,19 @@ print('Connected')
 #awaiting for message
 while True:
         data = conn.recv(1024).decode('ascii')
-        print('I sent a message back in response to: ' + data)
+        #print('I sent a message back in response to: ' + data)
 
         #process message
-        if data == 'Hello':
-                reply = 'Hi back!'
-        elif data == 'important':
-                reply = 'I have done the important thing!'
-        elif data == 'quit':
+        #if data == 'Hello':
+        #       reply = 'Hi back!'
+        #elif data == 'important':
+        #       reply = 'I have done the important thing!'
+        if data == 'quit':
                 conn.send(b'Terminate')
                 break
-        else:
-                reply = 'Recieved: ' + data
 
         #sending reply
-        conn.send(reply.encode('ascii'))
+        #conn.send(reply.encode('ascii'))
+        print('Recieved: ' + data)
 conn.close() #close connection
 
