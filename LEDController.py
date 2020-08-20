@@ -27,6 +27,7 @@ commandBuffer = queue.Queue(0)
 isConnected = False
 ledBrightness = 255
 powerState = True   
+currentMode = "mode1"
 
 #solid color values
 R = 0
@@ -133,9 +134,26 @@ class SetColorThread (threading.Thread):
 
     def run(self):
         root = Tk()
+        #initial window location
+        #<<<<<<<<<MODIFY FOR DIFFERENT SCREEN SIZES>>>>>>>>>
+        #+<width offset>+<height offset>
+        root.geometry("+2250+800")
+
         red = DoubleVar()
         green = DoubleVar()
         blue = DoubleVar()
+
+        def updateColor():
+            global R
+            global G
+            global B
+
+            R = red.get()
+            G = green.get()
+            B = blue.get()
+            print(R)
+            print(G)
+            print(B)      
 
         scale = Scale( root, variable = red, label="Red Value", orient=HORIZONTAL, to=255, length=255)
         scale.pack(anchor = CENTER)
@@ -143,8 +161,9 @@ class SetColorThread (threading.Thread):
         scale.pack(anchor = CENTER)
         scale = Scale( root, variable = blue, label="Blue Value", orient=HORIZONTAL, to=255, length=255)
         scale.pack(anchor = CENTER)
-        button = Button(root, text = "Update", command = updateColor(red.get(),green.get(),blue.get()))
+        button = Button(root, text = "Update", command = updateColor)
         button.pack(anchor = CENTER)
+
 
         root.mainloop()
        
@@ -152,19 +171,10 @@ class SetColorThread (threading.Thread):
 #main program initialization
 
 
-def updateColor(red, green, blue):
-    global R
-    global G
-    global B
-
-    R = red
-    G = green
-    B = blue
-    print(R)
-    print(G)
-    print(B)
-
-    
+#creates a new thread to set the user color and starts it
+def setColorThreadStart():
+    setColorThread = SetColorThread(3, "setColorThread1", )
+    setColorThread.start()
 
 
 def togglePower(icon, item):
@@ -175,50 +185,55 @@ def togglePower(icon, item):
     else:
         powerState = True
 
-def on_clicked(icon, item):
-    global state
-    state = not item.checked
+def checkMode(mode):
+    def inner(item):
+        return currentMode == mode
+    return inner
+
+def setCurrentMode(mode):
+    def inner(item):
+        global currentMode
+        currentMode = mode
+    return inner
 
 icon = pystray.Icon('test name')
 
-setColorThread = SetColorThread(3, "setColorThread1", )
 
 image = Image.open("icon2.png")
 
 icon.icon = image
 icon.menu = menu(
     item(
-        'Power',
-        togglePower,
-        checked=lambda item: powerState),
+        text = 'Power',
+        action = togglePower,
+        checked = lambda item: powerState),
+    
     item(
-        'Mode',
+        'Responsive',
         menu(
             item(
-                'Responsive',
-                menu(
-                    item(
-                        'Mode 1',
-                        lambda icon, item: 1
-                    ),
-                    item(
-                        'Mode 2',
-                        lambda icon, item: 2
-                    )
-                )
+                text = 'Mode 1',
+                action = setCurrentMode('mode1'),
+                checked= checkMode('mode1')
             ),
             item(
-                'Preset',
-                menu(
-                    item(
-                        'Mode 3',
-                        setColorThread.start()
-                    ),
-                    item(
-                        'Mode 4',
-                        lambda icon, item: 2
-                    )
-                )
+                text = 'Mode 2',
+                action = setCurrentMode('mode2'),
+                checked = checkMode('mode2')
+            )
+        )
+    ),
+    item(
+        'Non-Responsive',
+        menu(
+            item(
+                text = 'Set Single Color',
+                action = setColorThreadStart
+            ),
+            item(
+                text = 'Mode 4',
+                action=setCurrentMode('mode4'),
+                checked=checkMode('mode4')
             )
         )
     )
