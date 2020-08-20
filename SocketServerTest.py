@@ -33,15 +33,20 @@ while True:
                 #       reply = 'Hi back!'
                 #elif data == 'important':
                 #       reply = 'I have done the important thing!'
-                if data == 'close':
-                        conn.send(b'Terminate')
+                if data == 'terminate':
+                        conn.send(b'terminate')
                         break
+                elif data == 'restart':
+                        print('reboot')
+                if data == 'close':
+                        raise ConnectionResetError
                 else:
                         exec(data)
 
         #client disconnected, restart socket and wait for client
         except ConnectionResetError as e:
                 print("Client disconnected")
+                s.close()
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 try:
                         s.bind((HOST, PORT))

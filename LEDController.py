@@ -10,10 +10,15 @@ from tkinter import Tk, DoubleVar, Scale, CENTER, HORIZONTAL, Button
 from win10toast import ToastNotifier
 notify = ToastNotifier()
 
+#library for system controls (exit program)
+import sys
+
 import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
 import queue #for queue data structure
+
+#------------------------------------------------------------------------------------------------
 
 #global constants
 LED_COUNT = 300 #60led/M 5M strip
@@ -24,12 +29,13 @@ LED_COUNT = 300 #60led/M 5M strip
 #TODO: prioritize real time, throw out commands if falling behind too much
 #to send command, add the method to the queue as a string
 commandBuffer = queue.Queue(0)
+closeLightThread = False  #set this to false to close the LightThread
 isConnected = False
 ledBrightness = 255
 powerState = True   
 currentMode = "mode1"
 
-#solid color values
+#solid user color values
 R = 0
 G = 0
 B = 0
@@ -84,8 +90,8 @@ class CommThread (threading.Thread):
                     continue
                 #special command to close the connection
                 elif "close" in command:
-                    #send the command to the server
-                    self.socket.send(b'close')
+                    self.socket.send(command.encode('ascii'))
+                    self.socket.close()
                     break
                 else:
                     #send the command to the server
@@ -115,7 +121,7 @@ class LightThread (threading.Thread):
         self.i = 0
     def run(self):
         print ("Starting " + self.name)
-        while True:
+        while not closeLightThread:
             #only proccess and push commands when connected and powered on
             if isConnected and powerState:
                 self.i = self.i + 1
@@ -125,7 +131,7 @@ class LightThread (threading.Thread):
 
         print ("Exiting " + self.name)
 
-
+#thread for handeling the window to set the user color
 class SetColorThread (threading.Thread):
     def __init__(self, threadID, name):
         threading.Thread.__init__(self)
@@ -142,6 +148,11 @@ class SetColorThread (threading.Thread):
         red = DoubleVar()
         green = DoubleVar()
         blue = DoubleVar()
+
+        #initialize the value of the UI variables equal to the global ones
+        red.set(R)
+        green.set(G)
+        blue.set(B)
 
         def updateColor():
             global R
@@ -164,19 +175,52 @@ class SetColorThread (threading.Thread):
         button = Button(root, text = "Update", command = updateColor)
         button.pack(anchor = CENTER)
 
+        root.mainloop()
+
+#thread for handeling the brightness slider
+class SetBrightnessThread (threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+
+    def run(self):
+        root = Tk()
+        #initial window location
+        #<<<<<<<<<MODIFY FOR DIFFERENT SCREEN SIZES>>>>>>>>>
+        #+<width offset>+<height offset>
+        root.geometry("+2250+900")
+
+        brightness = DoubleVar()
+        brightness.set(ledBrightness)
+
+        def updateBrightness():
+            global ledBrightness
+            ledBrightness = brightness.get()
+            print(ledBrightness)      
+
+        scale = Scale( root, variable = brightness, label="LED Brightness", orient=HORIZONTAL, to=255, length=255)
+        scale.pack(anchor = CENTER)
+        button = Button(root, text = "Update", command = updateBrightness)
+        button.pack(anchor = CENTER)
 
         root.mainloop()
        
 
-#main program initialization
+#<<<<<<<<<<<<<<<main program initialization>>>>>>>>>>>>>>>>>>>
 
 
 #creates a new thread to set the user color and starts it
 def setColorThreadStart():
-    setColorThread = SetColorThread(3, "setColorThread1", )
+    setColorThread = SetColorThread(3, "setColorThread", )
     setColorThread.start()
 
+#creates a new thread to set the LED brightness and starts it
+def setBrightnessThreadStart():
+    setBrightnessThread = SetBrightnessThread(3, "setBrightnessThread", )
+    setBrightnessThread.start()
 
+#toggle the powerstate variable
 def togglePower(icon, item):
     global powerState
     if powerState:
@@ -185,23 +229,37 @@ def togglePower(icon, item):
     else:
         powerState = True
 
+#check if the given mode is the current mode
 def checkMode(mode):
     def inner(item):
         return currentMode == mode
     return inner
 
+#sets the current mode to the given mode
 def setCurrentMode(mode):
     def inner(item):
         global currentMode
         currentMode = mode
     return inner
 
-icon = pystray.Icon('test name')
+#FIXME: server side, bind failed to reconnect on client exit.
+#works fine if forcefully disconnected
+def exitController():
+    global closeLightThread
+    
+    icon.stop()
+    closeLightThread = True
+    commandBuffer.put("close")
+    commThread.join
+    lightThread.join
+    sys.exit()
 
+icon = pystray.Icon('LED Control')
 
-image = Image.open("icon2.png")
+#set the system tray icon
+icon.icon = Image.open("icon2.png")
 
-icon.icon = image
+#setup the right-click menu
 icon.menu = menu(
     item(
         text = 'Power',
@@ -236,18 +294,26 @@ icon.menu = menu(
                 checked=checkMode('mode4')
             )
         )
+    ),
+    item(
+        text = 'Brightness',
+        action = setBrightnessThreadStart
+    ),
+    item(
+        text = 'Exit',
+        action = exitController
     )
 )
 
+#create the threads for communication and light processing
+commThread = CommThread(1, "commThread", "101fdisplay.lib.iastate.edu",55555)
+lightThread = LightThread(2, "lightThread", commThread)
 
-commThread = CommThread(1, "commThread1", "101fdisplay.lib.iastate.edu",55555)
-lightThread = LightThread(2, "lightThread1", commThread)
-
+#start the threads
 commThread.start()
 lightThread.start()
 
-
-
 #display the icon in the system tray
+#loop here listening for input
 #ready for use
 icon.run()
