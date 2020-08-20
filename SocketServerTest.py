@@ -6,6 +6,7 @@ import rpi_ws281x
 HOST = '101fdisplay.lib.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 print('Socket created')
 
 try:
@@ -48,6 +49,7 @@ while True:
                 print("Client disconnected")
                 s.close()
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 try:
                         s.bind((HOST, PORT))
                 except socket.error:

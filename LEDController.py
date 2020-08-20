@@ -10,9 +10,6 @@ from tkinter import Tk, DoubleVar, Scale, CENTER, HORIZONTAL, Button
 from win10toast import ToastNotifier
 notify = ToastNotifier()
 
-#library for system controls (exit program)
-import sys
-
 import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
@@ -53,6 +50,7 @@ class CommThread (threading.Thread):
         self.host = host
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
     def run(self):
         global isConnected
@@ -67,14 +65,14 @@ class CommThread (threading.Thread):
             isConnected = True
         except ConnectionRefusedError as e:
             notify.show_toast("Connection Refused",
-                   "Check that the server is running the python script and is available via WiFi.\n" + 
+                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
                    "IP: " + self.host + " Port: %d" %self.port,
                    duration=20)
             #FIXME: could cause stackoverflow
             self.run()
         except TimeoutError as e:
             notify.show_toast("Connection Timeout",
-                   "Check that the server is running the python script and is available via WiFi.\n" + 
+                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
                    "IP: " + self.host + " Port: %d" %self.port,
                    duration=20)
             #FIXME: could cause stackoverflow
@@ -100,10 +98,18 @@ class CommThread (threading.Thread):
                 #wait for a return message before sending the next command
                 reply = self.socket.recv(256)
             #disconnected from server
-            except ConnectionAbortedError as e:
+            except (ConnectionAbortedError, ConnectionResetError) as e:
                 print("disconnected from server")
                 self.socket.close()
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                isConnected = False
+
+                notify.show_toast("Disconnected From Sever",
+                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
+                   "IP: " + self.host + " Port: %d" %self.port,
+                   duration=20)
+
                 self.run()
 
         self.socket.close()
@@ -127,7 +133,7 @@ class LightThread (threading.Thread):
                 self.i = self.i + 1
                 print("Proccessing lights...")
                 commandBuffer.put("print('printing from string %d')" % (self.i))
-                time.sleep(1)
+                time.sleep(.05)
 
         print ("Exiting " + self.name)
 
@@ -252,7 +258,7 @@ def exitController():
     commandBuffer.put("close")
     commThread.join
     lightThread.join
-    sys.exit()
+    quit()
 
 icon = pystray.Icon('LED Control')
 
