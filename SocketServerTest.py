@@ -42,9 +42,11 @@ class LightThread (threading.Thread):
 				while not closeLightThread:
 						data = frameBuffer.get()
 						#TODO: pickleing is insecure, verify connection user before using any data from them
-						frame = pickle.loads(data)
-						for led in frame:
-								strip.setPixelColorRGB(led[0], led[1], led[2])
+						frame = pickle.loads(bytes(data))
+						for i in range(len(frame)):
+								led = frame[i]
+								#print(led)
+								strip.setPixelColorRGB(i, int.from_bytes(led[0],"big"), int.from_bytes(led[1], "big"), int.from_bytes(led[2], "big"))
 						strip.show()
 				print ("Exiting " + self.name)
 
@@ -89,7 +91,7 @@ while True:
 								#TODO:  pickle trucating issue
 								data = conn.recv(4096)
 								#sending reply
-								#conn.send(b'Ok')
+								conn.send(b'Ok')
 								#print('Recieved: ' + data)
 
 								#print('I sent a message back in response to: ' + data)

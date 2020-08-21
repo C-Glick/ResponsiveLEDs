@@ -26,7 +26,7 @@ LED_COUNT = 60 #60led/M 6M strip
 #global queue to hold commands to send to the server
 #TODO: prioritize real time, throw out commands if falling behind too much
 #hold the arrays to be sent to the server
-frameBuffer = queue.Queue(0)
+frameBuffer = queue.Queue(30)
 #the current working frame
 #TODO: make sure values in frame are 8 bit numbers to reduce size as much as possible
 currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)] 
@@ -92,7 +92,8 @@ class CommThread (threading.Thread):
                 self.socket.send(data)
 
                 
-                #time.wait(1/60)
+                #wait for a return message before sending the next command
+                reply = self.socket.recv(256)
             #disconnected from server
             except (ConnectionAbortedError, ConnectionResetError) as e:
                 print("disconnected from server")
@@ -129,17 +130,19 @@ class LightThread (threading.Thread):
                 
                 if(currentMode=='simpleSolid'):
                     for led in range(LED_COUNT):
-                        currentFrame[led] = [R*ledBrightness/255, G*ledBrightness/255, B*ledBrightness/255]
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                     frameBuffer.put(currentFrame)
                     time.sleep(.1)
                 elif(currentMode=='movieTheater'):
-                    for q in range(3):
-                        for i in range(0, LED_COUNT, 3):
-                            commandBuffer.put("strip.setPixelColorRGB(%d, %d, %d, %d)" % (i + q, R, G, B))
-                        
-                        time.sleep(50 / 1000.0)
-                        for i in range(0, LED_COUNT, 3):
-                            commandBuffer.put("strip.setPixelColor(%d, 0)" % (i + q))
+                    for q in range(20):
+                        for i in range(0, LED_COUNT, 20):
+                            currentFrame[i+q] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                        frameBuffer.put(currentFrame)
+                        time.sleep(10 / 1000.0)
+                        for i in range(0, LED_COUNT, 20):
+                            currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
+                        frameBuffer.put(currentFrame)
+
                 else: 
                     commandBuffer.put("print('printing from string')" )
 
