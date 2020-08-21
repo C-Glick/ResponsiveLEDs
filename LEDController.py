@@ -18,7 +18,7 @@ import queue #for queue data structure
 #------------------------------------------------------------------------------------------------
 
 #global constants
-LED_COUNT = 300 #60led/M 5M strip
+LED_COUNT = 60 #60led/M 6M strip
 
 #global variables
 
@@ -33,9 +33,9 @@ powerState = True
 currentMode = "mode1"
 
 #solid user color values
-R = 0
-G = 0
-B = 0
+R = 255
+G = 255
+B = 255
 
 
 
@@ -79,7 +79,7 @@ class CommThread (threading.Thread):
             self.run()
         while True:
             try:
-                command = commandBuffer.get()
+                command = commandBuffer.get() + "\n"
                 
                 #command to reconnect to server
                 if "reconnect" in command:
@@ -96,7 +96,7 @@ class CommThread (threading.Thread):
                     self.socket.send(command.encode('ascii'))
 
                 #wait for a return message before sending the next command
-                reply = self.socket.recv(256)
+                #reply = self.socket.recv(256)
             #disconnected from server
             except (ConnectionAbortedError, ConnectionResetError) as e:
                 print("disconnected from server")
@@ -124,16 +124,28 @@ class LightThread (threading.Thread):
         self.name = name
         self.commThread = commThread
         
-        self.i = 0
     def run(self):
         print ("Starting " + self.name)
         while not closeLightThread:
             #only proccess and push commands when connected and powered on
             if isConnected and powerState:
-                self.i = self.i + 1
                 print("Proccessing lights...")
-                commandBuffer.put("print('printing from string %d')" % (self.i))
-                time.sleep(.05)
+                
+                if(currentMode=='simpleSolid'):
+                    commandBuffer.put("setAllPixelColorRGB(%d, %d, %d)" % (R, G, B))
+                    time.sleep(.1)
+                elif(currentMode=='movieTheater'):
+                    for q in range(3):
+                        for i in range(0, LED_COUNT, 3):
+                            commandBuffer.put("strip.setPixelColorRGB(%d, %d, %d, %d)" % (i + q, R, G, B))
+                        
+                        time.sleep(50 / 1000.0)
+                        for i in range(0, LED_COUNT, 3):
+                            commandBuffer.put("strip.setPixelColor(%d, 0)" % (i + q))
+                else: 
+                    commandBuffer.put("print('printing from string')" )
+
+                time.sleep(.01)
 
         print ("Exiting " + self.name)
 
@@ -203,6 +215,7 @@ class SetBrightnessThread (threading.Thread):
         def updateBrightness():
             global ledBrightness
             ledBrightness = brightness.get()
+            commandBuffer.put("strip.setBrightness(%d)" % ledBrightness)
             print(ledBrightness)      
 
         scale = Scale( root, variable = brightness, label="LED Brightness", orient=HORIZONTAL, to=255, length=255)
@@ -295,9 +308,14 @@ icon.menu = menu(
                 action = setColorThreadStart
             ),
             item(
-                text = 'Mode 4',
-                action=setCurrentMode('mode4'),
-                checked=checkMode('mode4')
+                text = 'Solid Color',
+                action=setCurrentMode('simpleSolid'),
+                checked=checkMode('simpleSolid')
+            ),
+            item(
+                text = 'Movie Theater',
+                action=setCurrentMode('movieTheater'),
+                checked=checkMode('movieTheater')
             )
         )
     ),
