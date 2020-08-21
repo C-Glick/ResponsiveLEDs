@@ -13,6 +13,7 @@ notify = ToastNotifier()
 import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
+import pickle #serializing and deserializing data sent
 import queue #for queue data structure
 
 #------------------------------------------------------------------------------------------------
@@ -24,18 +25,23 @@ LED_COUNT = 60 #60led/M 6M strip
 
 #global queue to hold commands to send to the server
 #TODO: prioritize real time, throw out commands if falling behind too much
+#hold the arrays to be sent to the server
+frameBuffer = queue.Queue(0)
+#the current working frame
+#TODO: make sure values in frame are 8 bit numbers to reduce size as much as possible
+currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)] 
 #to send command, add the method to the queue as a string
 commandBuffer = queue.Queue(0)
 closeLightThread = False  #set this to false to close the LightThread
 isConnected = False
 ledBrightness = 255
 powerState = True   
-currentMode = "mode1"
+currentMode = "simpleSolid"
 
 #solid user color values
 R = 255
-G = 255
-B = 255
+G = 0
+B = 0
 
 
 
@@ -79,24 +85,14 @@ class CommThread (threading.Thread):
             self.run()
         while True:
             try:
-                command = commandBuffer.get() + "\n"
+                frame = frameBuffer.get()
+                data = pickle.dumps(frame)
                 
-                #command to reconnect to server
-                if "reconnect" in command:
-                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.socket.connect((self.host, self.port))
-                    continue
-                #special command to close the connection
-                elif "close" in command:
-                    self.socket.send(command.encode('ascii'))
-                    self.socket.close()
-                    break
-                else:
-                    #send the command to the server
-                    self.socket.send(command.encode('ascii'))
+                #send the frame to the server
+                self.socket.send(data)
 
-                #wait for a return message before sending the next command
-                #reply = self.socket.recv(256)
+                
+                #time.wait(1/60)
             #disconnected from server
             except (ConnectionAbortedError, ConnectionResetError) as e:
                 print("disconnected from server")
@@ -132,7 +128,9 @@ class LightThread (threading.Thread):
                 print("Proccessing lights...")
                 
                 if(currentMode=='simpleSolid'):
-                    commandBuffer.put("setAllPixelColorRGB(%d, %d, %d)" % (R, G, B))
+                    for led in range(LED_COUNT):
+                        currentFrame[led] = [R*ledBrightness/255, G*ledBrightness/255, B*ledBrightness/255]
+                    frameBuffer.put(currentFrame)
                     time.sleep(.1)
                 elif(currentMode=='movieTheater'):
                     for q in range(3):
