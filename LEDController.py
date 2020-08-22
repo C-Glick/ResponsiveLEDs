@@ -13,6 +13,7 @@ notify = ToastNotifier()
 import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
+import bluetooth
 import pickle #serializing and deserializing data sent
 import queue #for queue data structure
 
@@ -55,8 +56,8 @@ class CommThread (threading.Thread):
         self.name = name
         self.host = host
         self.port = port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        #self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
     def run(self):
         global isConnected
@@ -331,7 +332,7 @@ icon.menu = menu(
 )
 
 #create the threads for communication and light processing
-commThread = CommThread(1, "commThread", "101fdisplay.lib.iastate.edu",55555)
+commThread = CommThread(1, "commThread", "B8:27:EB:5B:8E:21", 1)
 lightThread = LightThread(2, "lightThread", commThread)
 
 #start the threads
