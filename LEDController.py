@@ -14,6 +14,7 @@ import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
 import pickle #serializing and deserializing data sent
+import struct
 import queue #for queue data structure
 
 #------------------------------------------------------------------------------------------------
@@ -57,6 +58,31 @@ class CommThread (threading.Thread):
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        #self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+    def send_msg(self, msg):
+        # Prefix each message with a 4-byte length (network byte order)
+        msg = struct.pack('>I', len(msg)) + msg
+        self.socket.sendall(msg)
+
+    def recv_msg(self):
+        # Read message length and unpack it into an integer
+        raw_msglen = self.recvall(4)
+        if not raw_msglen:
+            return None
+        msglen = struct.unpack('>I', raw_msglen)[0]
+        # Read the message data
+        return self.recvall(msglen)
+
+    def recvall(self, n):
+        # Helper function to recv n bytes or return None if EOF is hit
+        data = bytearray()
+        while len(data) < n:
+            packet = self.socket.recv(n - len(data))
+            if not packet:
+                return None
+            data.extend(packet)
+        return data
     
     def run(self):
         global isConnected
@@ -89,11 +115,11 @@ class CommThread (threading.Thread):
                 data = pickle.dumps(frame)
                 
                 #send the frame to the server
-                self.socket.send(data)
+                self.send_msg(data)
 
                 
                 #wait for a return message before sending the next command
-                reply = self.socket.recv(256)
+                #self.recv_msg()
             #disconnected from server
             except (ConnectionAbortedError, ConnectionResetError) as e:
                 print("disconnected from server")
@@ -132,21 +158,19 @@ class LightThread (threading.Thread):
                     for led in range(LED_COUNT):
                         currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                     frameBuffer.put(currentFrame)
-                    time.sleep(.1)
+                    #time.sleep(.1)
                 elif(currentMode=='movieTheater'):
-                    for q in range(20):
-                        for i in range(0, LED_COUNT, 20):
+                    for q in range(10):
+                        for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                         frameBuffer.put(currentFrame)
-                        time.sleep(10 / 1000.0)
-                        for i in range(0, LED_COUNT, 20):
+                        time.sleep(20 / 1000.0)
+
+                        for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
-                        frameBuffer.put(currentFrame)
 
                 else: 
                     commandBuffer.put("print('printing from string')" )
-
-                time.sleep(.01)
 
         print ("Exiting " + self.name)
 

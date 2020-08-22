@@ -7,6 +7,8 @@ import os #for restart control
 import queue #queue data structure
 import threading #multithreading
 import pickle #serializing and deserializing data sent
+import struct
+import time
 
 #constant values
 HOST = '101fdisplay.lib.iastate.edu' #server ip or hostname
@@ -26,39 +28,48 @@ LED_CHANNEL = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 strip.begin()# Intialize the library (must be called once before other functions).
 
-frameBuffer = queue.Queue(0)    #queue to hold the frames received
+MAX_DELAY = 1/60 #max delay or wait time between displayed frames = 1/min framerate
+MAX_BUFFER = 30
+
+frameBuffer = queue.Queue(MAX_BUFFER)    #queue to hold the frames received
+
 closeLightThread = False        #set this to true to close the light thread
 
 
 #thread for light control
 class LightThread (threading.Thread):
-		def __init__(self, threadID, name):
-				threading.Thread.__init__(self)
-				self.threadID = threadID
-				self.name = name
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
 
-		def run(self):
-				print ("Starting " + self.name)
-				while not closeLightThread:
-						data = frameBuffer.get()
-						#TODO: pickleing is insecure, verify connection user before using any data from them
-						frame = pickle.loads(bytes(data))
-						for i in range(len(frame)):
-								led = frame[i]
-								#print(led)
-								strip.setPixelColorRGB(i, int.from_bytes(led[0],"big"), int.from_bytes(led[1], "big"), int.from_bytes(led[2], "big"))
-						strip.show()
-				print ("Exiting " + self.name)
+    def run(self):
+        print ("Starting " + self.name)
+        while not closeLightThread:
+            data = frameBuffer.get()
+            #TODO: pickleing is insecure, verify connection user before using any data from them
+            frame = pickle.loads(bytes(data))
+            for i in range(len(frame)):
+                led = frame[i]
+                #print(led)
+                strip.setPixelColorRGB(i, int.from_bytes(led[0],"big"), int.from_bytes(led[1], "big"), int.from_bytes(led[2], "big"))
+            strip.show()
+            #sleep between frames dependent on how many frames are in the buffer
+            #sleep more (lower fps) if there are fewer frames
+            #time.sleep(MAX_DELAY - (MAX_DELAY/MAX_BUFFER) * frameBuffer.qsize())
+            time.sleep(1/60)
+        print ("Exiting " + self.name)
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 print('Socket created')
 
 try:
-				s.bind((HOST, PORT))
+    s.bind((HOST, PORT))
 except socket.error:
-				print('Bind failed')
+    print('Bind failed')
 
 s.listen(1)
 print('Socket awaiting messages')
@@ -66,20 +77,44 @@ print('Socket awaiting messages')
 print('Connected')
 
 def setAllPixelColorRGB(r, g, b):
-				for i in range(LED_COUNT):
-								strip.setPixelColorRGB(i, r, g, b)
+    for i in range(LED_COUNT):
+        strip.setPixelColorRGB(i, r, g, b)
 
 def close():
-				raise ConnectionResetError
+    raise ConnectionResetError
 
 def terminate():
-				#TODO: test terminate function
-				s.close()
-				conn.close()
-				quit()
+    #TODO: test terminate function
+    s.close()
+    conn.close()
+    quit()
 def restart():
-				#TODO: test restart function
-				os.system('sudo shutdown -r now')
+    #TODO: test restart function
+    os.system('sudo shutdown -r now')
+
+def send_msg(sock, msg):
+    # Prefix each message with a 4-byte length (network byte order)
+    msg = struct.pack('>I', len(msg)) + msg
+    sock.sendall(msg)
+
+def recv_msg(sock):
+    # Read message length and unpack it into an integer
+    raw_msglen = recvall(sock, 4)
+    if not raw_msglen:
+        return None
+    msglen = struct.unpack('>I', raw_msglen)[0]
+    # Read the message data
+    return recvall(sock, msglen)
+
+def recvall(sock, n):
+    # Helper function to recv n bytes or return None if EOF is hit
+    data = bytearray()
+    while len(data) < n:
+        packet = sock.recv(n - len(data))
+        if not packet:
+            return None
+        data.extend(packet)
+    return data
 
 #start light control thread
 lightControlThread = LightThread(1, "lightControlThread")
@@ -87,42 +122,49 @@ lightControlThread.start()
 
 #start communication loop
 while True:
-				try:
-								#TODO:  pickle trucating issue
-								data = conn.recv(4096)
-								#sending reply
-								conn.send(b'Ok')
-								#print('Recieved: ' + data)
+    try:
+        #TODO:  pickle trucating issue
+        data = recv_msg(conn)
+        #sending reply
+        #send_msg(conn, b'Ok',)
+        #print('Recieved: ' + data)
 
-								#print('I sent a message back in response to: ' + data)
+        #print('I sent a message back in response to: ' + data)
 
-								#process message
-								#if data == 'Hello':
-								#       reply = 'Hi back!'
-								#elif data == 'important':
-								#       reply = 'I have done the important thing!'
-								frameBuffer.put(data)
+        #process message
+        #if data == 'Hello':
+        #       reply = 'Hi back!'
+        #elif data == 'important':
+        #       reply = 'I have done the important thing!'
+
+        if(frameBuffer.qsize() > 0.8*MAX_BUFFER):
+            frameBuffer.get()
+
+        frameBuffer.put(data)
 
 
 
-				#client disconnected, restart socket and wait for client
-				except ConnectionResetError:
-								print("Client disconnected")
-								setAllPixelColorRGB(0,0,0)
-								strip.show()
+    #client disconnected, restart socket and wait for client
+    except ConnectionResetError:
+        print("Client disconnected")
+        for frame in range(MAX_BUFFER):
+            currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)]
+            for led in range(LED_COUNT):
+                currentFrame[led] = [b'\x00',b'\x00',b'\x00']
+            frameBuffer.put(pickle.dumps(currentFrame))
 
-								s.close()
-								s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-								s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-								try:
-												s.bind((HOST, PORT))
-								except socket.error:
-												print('Bind failed')
-								s.listen(1)
-								print('Socket awaiting messages')
-								(conn, addr) = s.accept()
-								print('Connected')
-								continue
+        s.close()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+                                        s.bind((HOST, PORT))
+        except socket.error:
+                                        print('Bind failed')
+        s.listen(1)
+        print('Socket awaiting messages')
+        (conn, addr) = s.accept()
+        print('Connected')
+        continue
 
 
 conn.close() #close connection
