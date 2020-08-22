@@ -17,26 +17,23 @@ import pickle #serializing and deserializing data sent
 import struct
 import queue #for queue data structure
 
-#------------------------------------------------------------------------------------------------
-
-#global constants
+#constants---------------------------------------------------------------------
 LED_COUNT = 60 #60led/M 6M strip
+MAX_FPS = 60
 
-#global variables
+#global variables--------------------------------------------------------------
 
-#global queue to hold commands to send to the server
-#TODO: prioritize real time, throw out commands if falling behind too much
-#hold the arrays to be sent to the server
+#frames to be sent to the server
 frameBuffer = queue.Queue(30)
 #the current working frame
-#TODO: make sure values in frame are 8 bit numbers to reduce size as much as possible
 currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)] 
-#to send command, add the method to the queue as a string
+#to send frame, frameBuffer.put(currentFrame)
+#TODO: buffer to send commands such as reboot.
 commandBuffer = queue.Queue(0)
-closeLightThread = False  #set this to false to close the LightThread
-isConnected = False
+closeLightThread = False  #set this to true to close the LightThread
+isConnected = False #true if connected to the server
 ledBrightness = 255
-powerState = True   
+powerState = True
 currentMode = "simpleSolid"
 
 #solid user color values
@@ -153,7 +150,8 @@ class LightThread (threading.Thread):
             #only proccess and push commands when connected and powered on
             if isConnected and powerState:
                 print("Proccessing lights...")
-                
+                startTime = time.time()
+
                 if(currentMode=='simpleSolid'):
                     for led in range(LED_COUNT):
                         currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
@@ -168,9 +166,16 @@ class LightThread (threading.Thread):
 
                         for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
+                endTime = time.time()
+                
+                #framerate cap
+                time.sleep(max(0, 1/MAX_FPS-(endTime-startTime)))
 
-                else: 
-                    commandBuffer.put("print('printing from string')" )
+            elif(isConnected and not powerState):
+                for led in range(LED_COUNT):
+                    currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+                frameBuffer.put(currentFrame)
+                time.sleep(1)
 
         print ("Exiting " + self.name)
 
@@ -286,8 +291,6 @@ def setCurrentMode(mode):
         currentMode = mode
     return inner
 
-#FIXME: server side, bind failed to reconnect on client exit.
-#works fine if forcefully disconnected
 def exitController():
     global closeLightThread
     
