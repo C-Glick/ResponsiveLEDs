@@ -2,7 +2,7 @@
 #server side control for LED strips
 #the main thread handles communication to the client and pushing frames to the framebuffer
 #the light thread pulls data from the framebuffer, decodes it, and sets the led's accordingly
-#frames are sent as a 2d list, one list for each pixel containing 3, 8bit integers for the R, G, and B channels  
+#frames are sent as a 2d list, one list for each pixel containing 3, 8bit integers for the R, G, and B channels
 #each frame is pickled before sent
 import socket
 import rpi_ws281x
@@ -12,16 +12,16 @@ import os #for restart control
 import queue #queue data structure
 import threading #multithreading
 import pickle #serializing and deserializing data sent
-import struct 
+import struct
 import time #wait control
 
 #constant values------------------------------------------------------------------------
 HOST = '101fdisplay.lib.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
-MAX_DELAY = 1/60 #max delay or wait time between displayed frames = 1/min framerate
+MAX_DELAY = 1/90 #max delay or wait time between displayed frames = 1/min framerate
 MAX_BUFFER = 30
 #led strip variables and initialization
-LED_COUNT = 60       # Number of LED pixels.
+LED_COUNT = 360       # Number of LED pixels.
 LED_PIN = 18          # GPIO pin connected to the pixels (18 uses PWM!).
 # LED_PIN = 10        # GPIO pin connected to the pixels (10 uses SPI /dev/spidev0.0).
 LED_FREQ_HZ = 800000  # LED signal frequency in hertz (usually 800khz)
@@ -58,8 +58,22 @@ class LightThread (threading.Thread):
             #sleep between frames dependent on how many frames are in the buffer
             #sleep more (lower fps) if there are fewer frames
             #time.sleep(MAX_DELAY - (MAX_DELAY/MAX_BUFFER) * frameBuffer.qsize())
-            time.sleep(1/60)
+            time.sleep(MAX_DELAY)
         print ("Exiting " + self.name)
+
+def connectedAnimation():
+    for led in range(LED_COUNT):
+        strip.setPixelColorRGB(led, 0, 0, 0)
+    strip.show()
+
+    for led in range(8, LED_COUNT, 5):
+        for i in range(4):
+            strip.setPixelColorRGB(led-i, 0, 255, 20)
+        for i in range(4, 8):
+            strip.setPixelColorRGB(led-i, 0, 0, 0)
+        strip.show()
+        #time.sleep(0.001)
+
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -76,6 +90,7 @@ s.listen(1)
 print('Socket awaiting messages')
 (conn, addr) = s.accept()
 print('Connected')
+connectedAnimation()
 
 def close():
     raise ConnectionResetError
@@ -152,6 +167,7 @@ while True:
         print('Socket awaiting messages')
         (conn, addr) = s.accept()
         print('Connected')
+        connectedAnimation()
         continue
 
 conn.close() #close connection

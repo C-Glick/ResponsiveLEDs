@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VBAudioVoicemeeterSettings>
+<VoiceMeeterDeviceConfiguration>
+	<OptionDev mme='1024' wdm='512' ks='512' asio='0' srasio='0 msA1='0' msA2='0' />
+	<InputDev index='1' name="-" />
+	<InputDev index='2' type='4' name="CABLE Output (VB-Audio Virtual Cable)" />
+	<OutputDev index='1' type='4' name="Speakers (3- High Definition Audio Device)" />
+	<OutputDev index='2' name="-" pOut1='0' pOut2='0' pOut3='0' pOut4='0' pOut5='0' pOut6='0' pOut7='0' pOut8='0'  />
+	<MIDIDevIn index='1' name="-" />
+</VoiceMeeterDeviceConfiguration>
+<VoiceMeeterParameters>
+	<LabelStrip1>Hardware input 1</LabelStrip1>
+	<LabelStrip2>Hardware input 2</LabelStrip2>
+	<LabelVirtualStrip1></LabelVirtualStrip1>
+	<Strip index='1' mute='0' solo='0' mono='0' muc='0' busa='1' busb='1' dblevel='-0.21' />
+	<Strip index='1' paneltype='1' 3DPanelx='0.000' 3DPanely='0.000' ColorPanelx='0.000' ColorPanely='0.000' audibility='0.00' />
+	<Strip index='2' mute='0' solo='0' mono='0' muc='0' busa='1' busb='1' dblevel='-0.21' />
+	<Strip index='2' paneltype='1' 3DPanelx='0.000' 3DPanely='0.000' ColorPanelx='0.000' ColorPanely='0.000' audibility='0.00' />
+	<Strip index='3' mute='0' solo='0' mono='0' muc='0' busa='1' busb='1' dblevel='0.00' />
+	<Strip index='3' EQGain1='0.00' EQGain2='0.00' EQGain3='0.00' 3DPanelx='-0.076' 3DPanely='0.096' />
+	<Bus index='1' mute='0' mono='0' cross='0' BusMode='0' EQon='0' dblevel='0.00' />
+	<Bus index='2' mute='0' mono='1' cross='0' BusMode='0' EQon='0' dblevel='0.00' />
+	<LabelBus1></LabelBus1>
+	<LabelVirtualBus1></LabelVirtualBus1>
+</VoiceMeeterParameters>
+<VoiceMeeterMidiMap>
+	<MidiMapName></MidiMapName>
+	<MidiMapItem id='InGainFader1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InMute1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InSolo1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InAudib1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InGainFader2' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InMute2' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InSolo2' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='InAudib2' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VInGainFader1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VInMute1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VInSolo1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VInMuteC1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VIn1EQHigh' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VIn1EQMed' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VIn1EQBass' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='OutGainFader1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='OutMute1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VOutGainFader1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='VOutMute1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+	<MidiMapItem id='ToggleABs1' b1='00' b2='00' b3='00' b4='00' b5='00' b6='00' coder='0' ptt='0' />
+</VoiceMeeterMidiMap>
+<VBANConfiguration>
+	<VBAN status='0' />
+	<VBANStreamIn index='1' in='2' status='0' name='Stream1' ip='' port='6980' NQ='1' />
+	<VBANStreamIn index='2' in='0' status='0' name='Stream2' ip='' port='6980' NQ='1' />
+	<VBANStreamIn index='3' in='0' status='0' name='Stream3' ip='' port='6980' NQ='1' />
+	<VBANStreamIn index='4' in='0' status='0' name='Stream4' ip='' port='6980' NQ='1' />
+	<VBANDataIn index='1' status='0' name='MIDI1' ip='' port='6980' />
+	<VBANCommandIn index='1' status='0' name='Command1' ip='' port='6980' />
+	<VBANStreamOut index='1' bus='0' status='0' name='Stream1' ip='' port='6980' SR='48000' ch='2' NQ='0' format='1' />
+	<VBANStreamOut index='2' bus='0' status='0' name='Stream2' ip='' port='6980' SR='48000' ch='2' NQ='0' format='1' />
+	<VBANStreamOut index='3' bus='0' status='0' name='Stream3' ip='' port='6980' SR='48000' ch='2' NQ='0' format='1' />
+	<VBANStreamOut index='4' bus='0' status='0' name='Stream4' ip='' port='6980' SR='48000' ch='2' NQ='0' format='1' />
+</VBANConfiguration>
+</VBAudioVoicemeeterSettings>

@@ -16,9 +16,10 @@ import socket #lib for socket communication to server
 import pickle #serializing and deserializing data sent
 import struct
 import queue #for queue data structure
+import math
 
 #constants---------------------------------------------------------------------
-LED_COUNT = 60 #60led/M 6M strip
+LED_COUNT = 360 #60led/M 6M strip
 MAX_FPS = 60
 
 #global variables--------------------------------------------------------------
@@ -33,7 +34,10 @@ commandBuffer = queue.Queue(0)
 closeLightThread = False  #set this to true to close the LightThread
 isConnected = False #true if connected to the server
 ledBrightness = 255
+frameCount = 0
+animationSpeed = 50
 powerState = True
+#FIXME: server crashes when starting on movie theater
 currentMode = "simpleSolid"
 
 #solid user color values
@@ -145,11 +149,15 @@ class LightThread (threading.Thread):
         self.commThread = commThread
         
     def run(self):
+        global frameCount
+
         print ("Starting " + self.name)
         while not closeLightThread:
             #only proccess and push commands when connected and powered on
+            
             if isConnected and powerState:
                 print("Proccessing lights...")
+
                 startTime = time.time()
 
                 if(currentMode=='simpleSolid'):
@@ -157,19 +165,28 @@ class LightThread (threading.Thread):
                         currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                     frameBuffer.put(currentFrame)
                     #time.sleep(.1)
+                elif(currentMode=='breathe'):
+                    for led in range(LED_COUNT):
+                        breatheBrightness = 0.5 + 0.5 * math.cos(animationSpeed/300 * frameCount)
+                        currentFrame[led] = [bytes([int((R*breatheBrightness*ledBrightness)/255)]), bytes([int((G*breatheBrightness*ledBrightness)/255)]), bytes([int((B*breatheBrightness*ledBrightness)/255)])]
+                    frameBuffer.put(currentFrame)
+                                 
                 elif(currentMode=='movieTheater'):
                     for q in range(10):
                         for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                         frameBuffer.put(currentFrame)
-                        time.sleep(20 / 1000.0)
+                        #(wait time, 0.15s - 0s ) + specific pattern wait time 
+                        time.sleep((0.10-(animationSpeed/1000)) +0.01 )
 
                         for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
+
                 endTime = time.time()
                 
                 #framerate cap
                 time.sleep(max(0, 1/MAX_FPS-(endTime-startTime)))
+                frameCount = frameCount + 1
 
             elif(isConnected and not powerState):
                 for led in range(LED_COUNT):
@@ -245,7 +262,6 @@ class SetBrightnessThread (threading.Thread):
         def updateBrightness():
             global ledBrightness
             ledBrightness = brightness.get()
-            commandBuffer.put("strip.setBrightness(%d)" % ledBrightness)
             print(ledBrightness)      
 
         scale = Scale( root, variable = brightness, label="LED Brightness", orient=HORIZONTAL, to=255, length=255)
@@ -254,6 +270,35 @@ class SetBrightnessThread (threading.Thread):
         button.pack(anchor = CENTER)
 
         root.mainloop()
+
+#thread for handeling the speed slider
+class SetSpeedThread (threading.Thread):
+    def __init__(self, threadID, name):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = name
+
+    def run(self):
+        root = Tk()
+        #initial window location
+        #<<<<<<<<<MODIFY FOR DIFFERENT SCREEN SIZES>>>>>>>>>
+        #+<width offset>+<height offset>
+        root.geometry("+2250+900")
+
+        speed = DoubleVar()
+        speed.set(animationSpeed)
+
+        def updateSpeed():
+            global animationSpeed
+            animationSpeed = speed.get()
+
+        scale = Scale( root, variable = speed, label="Animation Speed", orient=HORIZONTAL, from_=1, to=100, length=255, resolution=0.1)
+        scale.pack(anchor = CENTER)
+        button = Button(root, text = "Update", command = updateSpeed)
+        button.pack(anchor = CENTER)
+
+        root.mainloop()
+       
        
 
 #<<<<<<<<<<<<<<<main program initialization>>>>>>>>>>>>>>>>>>>
@@ -263,6 +308,11 @@ class SetBrightnessThread (threading.Thread):
 def setColorThreadStart():
     setColorThread = SetColorThread(3, "setColorThread", )
     setColorThread.start()
+
+#creates a new thread to set the animation speed and starts it
+def setSpeedThreadStart():
+    setSpeedThread = SetSpeedThread(3, "setSpeedThread", )
+    setSpeedThread.start()
 
 #creates a new thread to set the LED brightness and starts it
 def setBrightnessThreadStart():
@@ -332,8 +382,12 @@ icon.menu = menu(
         'Non-Responsive',
         menu(
             item(
-                text = 'Set Single Color',
+                text = 'Set Color',
                 action = setColorThreadStart
+            ),
+            item(
+                text = 'Set Speed',
+                action = setSpeedThreadStart
             ),
             item(
                 text = 'Solid Color',
@@ -344,6 +398,11 @@ icon.menu = menu(
                 text = 'Movie Theater',
                 action=setCurrentMode('movieTheater'),
                 checked=checkMode('movieTheater')
+            ),
+             item(
+                text = 'Breathe',
+                action=setCurrentMode('breathe'),
+                checked=checkMode('breathe')
             )
         )
     ),
