@@ -20,14 +20,15 @@ import math
 
 #constants---------------------------------------------------------------------
 LED_COUNT = 360 #60led/M 6M strip
-MAX_FPS = 60
+MAX_FPS = 30 #limit the number of frames sent to the server per second, lower fps can reduce delay 
 
 #global variables--------------------------------------------------------------
 
 #frames to be sent to the server
 frameBuffer = queue.Queue(30)
 #the current working frame
-currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)] 
+currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)]
+pulseList = [] #list to hold pulses 
 #to send frame, frameBuffer.put(currentFrame)
 #TODO: buffer to send commands such as reboot.
 commandBuffer = queue.Queue(0)
@@ -140,6 +141,76 @@ class CommThread (threading.Thread):
         isConnected = False
         print ("Exiting " + self.name)
 
+#Represents a pulse that travels down the strip
+#
+#position, int,
+#the position is always defined as the lowest index led in the pulse,
+#or the left side of the pulse, if the strips leds are in increasing order
+#from left to right,
+#EX: position = 1 and length = 4
+# [led0] [led1] [led2] [led3] [led4] [led5] [led6]...
+#   x     pos.  pos+1  pos+2  pos+3    x      x
+#
+#Position can be negative or above LED_COUNT as long as position+length is not
+#
+#Length, int, the number of pixels lit by each pulse
+#
+#velocity, float, the number of pixels to move each frame, neg. or pos.
+#
+#fadeRate, float, the rate at which brightness will decrease each frame
+#
+#loop, boolean, if the pulse should loop to the other end of the strip or not
+#
+#R, G, B, int 0-255, the color of the pulse
+class Pulse ():
+    def __init__(self, position, length, velocity, fadeRate, loop, R, G, B):
+        self.position = position
+        self.length = length
+        self.velocity = velocity
+        self.fadeRate = -abs(fadeRate)
+        self.brightness = 255  #always start at max brightness
+        self.loop = loop
+        self.R = R
+        self.G = G
+        self.B = B
+    
+    #TODO: switch drawing to the pulse not the pulse manager
+    def draw(self):
+        print()
+
+class PulseManager():
+    def update():
+        global pulseList
+        global currentFrame
+
+        #clear frame
+        for led in range(LED_COUNT):
+            currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+        for pulse in pulseList:
+            pulse.position = pulse.position + pulse.velocity
+            pulse.brightness = pulse.brightness + pulse.fadeRate
+
+            if int(pulse.brightness) <= 0:
+                pulseList.remove(pulse) #pulse has 0 brightness
+                continue
+
+            if(not pulse.loop):
+                if (pulse.position + pulse.length < 0 or pulse.position - pulse.length > LED_COUNT) :
+                    pulseList.remove(pulse) #pulse has reached the end of the lights
+                else:
+                    #draw pulse
+                    for led in range(pulse.length):
+                        led = int(led + pulse.position)
+                        if 0 <= led < LED_COUNT:
+                            currentFrame[led] = [bytes([int((pulse.R*pulse.brightness*ledBrightness)/65025)]),
+                                                 bytes([int((pulse.G*pulse.brightness*ledBrightness)/65025)]),
+                                                 bytes([int((pulse.B*pulse.brightness*ledBrightness)/65025)])]
+            else:
+                #TODO: draw looping pulse
+                print("draw looping pulse")
+        frameBuffer.put(currentFrame)
+
 #thread for audio processing and light control
 class LightThread (threading.Thread):
     def __init__(self, threadID, name, commThread):
@@ -147,6 +218,7 @@ class LightThread (threading.Thread):
         self.threadID = threadID
         self.name = name
         self.commThread = commThread
+        self.pulseManager = PulseManager()
         
     def run(self):
         global frameCount
@@ -154,10 +226,8 @@ class LightThread (threading.Thread):
         print ("Starting " + self.name)
         while not closeLightThread:
             #only proccess and push commands when connected and powered on
-            
             if isConnected and powerState:
                 print("Proccessing lights...")
-
                 startTime = time.time()
 
                 if(currentMode=='simpleSolid'):
@@ -181,7 +251,11 @@ class LightThread (threading.Thread):
 
                         for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
-
+                elif(currentMode=='test1'):
+                    PulseManager.update()
+                    if(frameCount % 100 == 0):
+                        pulseList.insert(0, Pulse(position=LED_COUNT+20, length=20, velocity=-3, fadeRate=0, loop=False, R=R, G=G, B=B))
+                       
                 endTime = time.time()
                 
                 #framerate cap
@@ -367,9 +441,9 @@ icon.menu = menu(
         'Responsive',
         menu(
             item(
-                text = 'Mode 1',
-                action = setCurrentMode('mode1'),
-                checked= checkMode('mode1')
+                text = 'test1',
+                action = setCurrentMode('test1'),
+                checked= checkMode('test1')
             ),
             item(
                 text = 'Mode 2',
