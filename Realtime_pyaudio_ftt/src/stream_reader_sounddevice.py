@@ -3,7 +3,7 @@ import time, sys, math
 from collections import deque
 import sounddevice as sd
 
-from src.utils import *
+from Realtime_pyaudio_ftt.src.utils import *
 
 class Stream_Reader:
     """

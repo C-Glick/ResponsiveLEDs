@@ -10,6 +10,9 @@ from tkinter import Tk, DoubleVar, Scale, CENTER, HORIZONTAL, Button
 from win10toast import ToastNotifier
 notify = ToastNotifier()
 
+#lib for audio processing
+from Realtime_pyaudio_ftt.src.stream_analyzer import Stream_Analyzer
+
 import threading #multithreading
 import time #sleep command
 import socket #lib for socket communication to server
@@ -17,6 +20,7 @@ import pickle #serializing and deserializing data sent
 import struct
 import queue #for queue data structure
 import math
+import numpy as np
 
 #constants---------------------------------------------------------------------
 LED_COUNT = 360 #60led/M 6M strip
@@ -231,15 +235,28 @@ class LightThread (threading.Thread):
         self.name = name
         self.commThread = commThread
         self.pulseManager = PulseManager()
+
+        self.audio = Stream_Analyzer(
+                device = 6,               # Manually play with this (int) if you don't see anything
+                rate   = None,               # Audio samplerate, None uses the default source settings
+                FFT_window_size_ms  = 60,    # Window size used for the FFT transform
+                updates_per_second  = 3000,  # How often to read the audio stream for new data
+                smoothing_length_ms = 50,    # Apply some temporal smoothing to reduce noisy features
+                n_frequency_bins    = 255,   # The FFT features are grouped in bins
+                visualize = 0,               # Visualize the FFT features with PyGame
+                verbose   = 0                # Print running statistics (latency, fps, ...)
+                )
         
     def run(self):
         global frameCount
+        global R
+        global G
+        global B
 
         print ("Starting " + self.name)
         while not closeLightThread:
             #only proccess and push commands when connected and powered on
             if isConnected and powerState:
-                print("Proccessing lights...")
                 startTime = time.time()
 
                 if(currentMode=='simpleSolid'):
@@ -265,9 +282,28 @@ class LightThread (threading.Thread):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
                 elif(currentMode=='test1'):
                     PulseManager.update()
-                    if(frameCount % 200 == 0):
-                        pulseList.insert(0, Pulse(position=30, length=5, velocity=2, fadeRate=0.1, loop=True, R=R, G=0, B=0))
-                        pulseList.insert(0, Pulse(position=30, length=5, velocity=-2, fadeRate=0.1, loop=True, R=0, G=0, B=B))
+                    raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
+
+                    for freq in range(len(binned_fft)):
+                        amp= binned_fft[freq]
+
+                        if 0<= freq <= 50 and amp > 70:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=0))
+                        elif 51<= freq <= 100 and amp > 70:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=255, B=0))
+                        elif 101<= freq <= 150 and amp > 60:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=255, B=0))
+                        elif 151<= freq <= 200 and amp > 60:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=255, B=255))
+                        elif 201<= freq <= 250 and amp > 60:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=0, B=255))
+                        elif 251<= freq <= 300 and amp > 60:
+                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=255))
+                elif(currentMode=='test2'):
+                    PulseManager.update()
+                    if(frameCount % 300 == 0):
+                        pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=0))
+
                        
                 endTime = time.time()
                 
@@ -459,9 +495,9 @@ icon.menu = menu(
                 checked= checkMode('test1')
             ),
             item(
-                text = 'Mode 2',
-                action = setCurrentMode('mode2'),
-                checked = checkMode('mode2')
+                text = 'test2',
+                action = setCurrentMode('test2'),
+                checked = checkMode('test2')
             )
         )
     ),

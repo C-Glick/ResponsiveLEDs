@@ -3,7 +3,7 @@ import pyaudio
 import time, sys, math
 from collections import deque
 
-from src.utils import *
+from Realtime_pyaudio_ftt.src.utils import *
 
 class Stream_Reader:
     """

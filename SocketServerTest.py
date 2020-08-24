@@ -66,20 +66,22 @@ def connectedAnimation():
         strip.setPixelColorRGB(led, 0, 0, 0)
     strip.show()
 
-    for led in range(8, LED_COUNT, 5):
-        for i in range(4):
+    for led in range(9, LED_COUNT, 3):
+        for i in range(5):
             strip.setPixelColorRGB(led-i, 0, 255, 20)
-        for i in range(4, 8):
+        for i in range(5, 9):
             strip.setPixelColorRGB(led-i, 0, 0, 0)
         strip.show()
-        #time.sleep(0.001)
-
-
+        #time.sleep(1)
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 #s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 print('Socket created')
+
+#start light control thread
+lightControlThread = LightThread(1, "lightControlThread")
+lightControlThread.start()
 
 try:
     s.bind((HOST, PORT))
@@ -128,10 +130,6 @@ def recvall(sock, n):
             return None
         data.extend(packet)
     return data
-
-#start light control thread
-lightControlThread = LightThread(1, "lightControlThread")
-lightControlThread.start()
 
 #start communication loop
 while True:
