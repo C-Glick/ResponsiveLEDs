@@ -176,7 +176,24 @@ class Pulse ():
     
     #TODO: switch drawing to the pulse not the pulse manager
     def draw(self):
-        print()
+        for led in range(self.length):
+            led = int(led + self.position)
+            if(self.loop == True):
+                #pulse on lower end of strip
+                if led < 0:
+                    led = (LED_COUNT-1)+led
+                #pulse on upper end of strip
+                elif led >= LED_COUNT:
+                    led = led - (LED_COUNT)
+            elif not (0<= led < LED_COUNT):
+                continue
+
+            #mix colors
+            red = int(min(255, int.from_bytes(currentFrame[led][0], "big") + (self.R*self.brightness*ledBrightness)/65025))
+            green = int(min(255, int.from_bytes(currentFrame[led][1], "big") + (self.G*self.brightness*ledBrightness)/65025))
+            blue = int(min(255, int.from_bytes(currentFrame[led][2], "big") + (self.B*self.brightness*ledBrightness)/65025))
+
+            currentFrame[led] = [bytes([red]), bytes([green]), bytes([blue])]
 
 class PulseManager():
     def update():
@@ -189,6 +206,9 @@ class PulseManager():
 
         for pulse in pulseList:
             pulse.position = pulse.position + pulse.velocity
+            if(pulse.position < 0): pulse.position = LED_COUNT-1
+            if(pulse.position >= LED_COUNT): pulse.position = 0
+
             pulse.brightness = pulse.brightness + pulse.fadeRate
 
             if int(pulse.brightness) <= 0:
@@ -198,17 +218,9 @@ class PulseManager():
             if(not pulse.loop):
                 if (pulse.position + pulse.length < 0 or pulse.position - pulse.length > LED_COUNT) :
                     pulseList.remove(pulse) #pulse has reached the end of the lights
-                else:
-                    #draw pulse
-                    for led in range(pulse.length):
-                        led = int(led + pulse.position)
-                        if 0 <= led < LED_COUNT:
-                            currentFrame[led] = [bytes([int((pulse.R*pulse.brightness*ledBrightness)/65025)]),
-                                                 bytes([int((pulse.G*pulse.brightness*ledBrightness)/65025)]),
-                                                 bytes([int((pulse.B*pulse.brightness*ledBrightness)/65025)])]
-            else:
-                #TODO: draw looping pulse
-                print("draw looping pulse")
+                    continue
+
+            pulse.draw()
         frameBuffer.put(currentFrame)
 
 #thread for audio processing and light control
@@ -253,8 +265,9 @@ class LightThread (threading.Thread):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
                 elif(currentMode=='test1'):
                     PulseManager.update()
-                    if(frameCount % 100 == 0):
-                        pulseList.insert(0, Pulse(position=LED_COUNT+20, length=20, velocity=-3, fadeRate=0, loop=False, R=R, G=G, B=B))
+                    if(frameCount % 200 == 0):
+                        pulseList.insert(0, Pulse(position=30, length=5, velocity=2, fadeRate=0.1, loop=True, R=R, G=0, B=0))
+                        pulseList.insert(0, Pulse(position=30, length=5, velocity=-2, fadeRate=0.1, loop=True, R=0, G=0, B=B))
                        
                 endTime = time.time()
                 
