@@ -21,6 +21,7 @@ import struct
 import queue #for queue data structure
 import math
 import numpy as np
+import collections
 
 #constants---------------------------------------------------------------------
 LED_COUNT = 360 #60led/M 6M strip
@@ -38,7 +39,7 @@ pulseList = [] #list to hold pulses
 commandBuffer = queue.Queue(0)
 closeLightThread = False  #set this to true to close the LightThread
 isConnected = False #true if connected to the server
-ledBrightness = 255
+ledBrightness = 20
 frameCount = 0
 animationSpeed = 50
 powerState = True
@@ -193,9 +194,13 @@ class Pulse ():
                 continue
 
             #mix colors
-            red = int(min(255, int.from_bytes(currentFrame[led][0], "big") + (self.R*self.brightness*ledBrightness)/65025))
-            green = int(min(255, int.from_bytes(currentFrame[led][1], "big") + (self.G*self.brightness*ledBrightness)/65025))
-            blue = int(min(255, int.from_bytes(currentFrame[led][2], "big") + (self.B*self.brightness*ledBrightness)/65025))
+            #red = int(min(255, int.from_bytes(currentFrame[led][0], "big") + (self.R*self.brightness*ledBrightness)/65025))
+            #green = int(min(255, int.from_bytes(currentFrame[led][1], "big") + (self.G*self.brightness*ledBrightness)/65025))
+            #blue = int(min(255, int.from_bytes(currentFrame[led][2], "big") + (self.B*self.brightness*ledBrightness)/65025))
+
+            red = int(min(255, (self.R*self.brightness*ledBrightness)/65025))
+            green = int(min(255, (self.G*self.brightness*ledBrightness)/65025))
+            blue = int(min(255, (self.B*self.brightness*ledBrightness)/65025))
 
             currentFrame[led] = [bytes([red]), bytes([green]), bytes([blue])]
 
@@ -236,22 +241,39 @@ class LightThread (threading.Thread):
         self.commThread = commThread
         self.pulseManager = PulseManager()
 
+        self.frequencyBins = 300
+        self.minAmp = 0.01 #the minimum amplitude allowed for visualization (to not visualize noise)
+        self.triggerPercent = 6 #if amp > average amp * triggerPercent, then trigger a visualization event
+        self.numAudioHistory = 60 # the number of frames to hold in memory when calculating average
+
         self.audio = Stream_Analyzer(
                 device = 6,               # Manually play with this (int) if you don't see anything
                 rate   = None,               # Audio samplerate, None uses the default source settings
                 FFT_window_size_ms  = 60,    # Window size used for the FFT transform
                 updates_per_second  = 3000,  # How often to read the audio stream for new data
                 smoothing_length_ms = 50,    # Apply some temporal smoothing to reduce noisy features
-                n_frequency_bins    = 255,   # The FFT features are grouped in bins
+                n_frequency_bins    = self.frequencyBins,   # The FFT features are grouped in bins
                 visualize = 0,               # Visualize the FFT features with PyGame
                 verbose   = 0                # Print running statistics (latency, fps, ...)
                 )
-        
+
+    def num_to_rgb(self, val, max_val):
+        i = (val * 255 / max_val)
+        r = round(math.sin(0.024 * i + 0) * 127 + 128)
+        g = round(math.sin(0.024 * i + 2) * 127 + 128)
+        b = round(math.sin(0.024 * i + 4) * 127 + 128)
+        return (r,g,b)
+
+
     def run(self):
         global frameCount
         global R
         global G
         global B
+
+        #Audio visualizer data       
+        history =  collections.deque(maxlen=self.numAudioHistory)
+        averageBinAmp = [0] * self.frequencyBins 
 
         print ("Starting " + self.name)
         while not closeLightThread:
@@ -287,22 +309,24 @@ class LightThread (threading.Thread):
                     for freq in range(len(binned_fft)):
                         amp= binned_fft[freq]
 
-                        if 0<= freq <= 50 and amp > 70:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=0))
-                        elif 51<= freq <= 100 and amp > 70:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=255, B=0))
-                        elif 101<= freq <= 150 and amp > 60:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=255, B=0))
-                        elif 151<= freq <= 200 and amp > 60:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=255, B=255))
-                        elif 201<= freq <= 250 and amp > 60:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=0, G=0, B=255))
-                        elif 251<= freq <= 300 and amp > 60:
-                            pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=255))
+                        if(amp>self.minAmp):
+                            if(amp > averageBinAmp[freq] * self.triggerPercent):
+                                pulseList.insert(0, Pulse(0, 2, 2, max(5, 30 * averageBinAmp[freq]/amp), False, *(self.num_to_rgb(freq, self.frequencyBins/2))))
+
+                    #push current data to history and recalculate averages
+                    history.append(binned_fft)
+
+                    #find the average amplitude for each frequency
+                    for freq in range(len(history[0])):
+                        sum=0
+                        for frame in range(len(history)):
+                            sum += history[frame][freq]
+                        averageBinAmp[freq] = sum/self.numAudioHistory
+
                 elif(currentMode=='test2'):
                     PulseManager.update()
                     if(frameCount % 300 == 0):
-                        pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=5, loop=True, R=255, G=0, B=0))
+                        pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=10, loop=True, R=255, G=0, B=0))
 
                        
                 endTime = time.time()
