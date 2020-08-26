@@ -2,6 +2,7 @@
 import pystray #lib for system tray icon
 from pystray import Icon as icon, Menu as menu, MenuItem as item
 from PIL import Image, ImageDraw
+import sys
 #lib for GUI window
 import tkinter
 from tkinter import Tk, DoubleVar, Scale, CENTER, HORIZONTAL, Button
@@ -38,8 +39,9 @@ pulseList = [] #list to hold pulses
 #TODO: buffer to send commands such as reboot.
 commandBuffer = queue.Queue(0)
 closeLightThread = False  #set this to true to close the LightThread
+closeCommThread = False #set this to true to close the commThread
 isConnected = False #true if connected to the server
-ledBrightness = 20
+ledBrightness = 255
 frameCount = 0
 animationSpeed = 50
 powerState = True
@@ -116,7 +118,7 @@ class CommThread (threading.Thread):
                    duration=20)
             #FIXME: could cause stackoverflow
             self.run()
-        while True:
+        while not closeCommThread:
             try:
                 frame = frameBuffer.get()
                 data = pickle.dumps(frame)
@@ -124,6 +126,12 @@ class CommThread (threading.Thread):
                 #send the frame to the server
                 self.send_msg(data)
 
+                try:
+                    command = commandBuffer.get(False)
+                    data = pickle.dumps(command)
+                    self.send_msg(data)
+                except queue.Empty as e:
+                    pass
                 
                 #wait for a return message before sending the next command
                 #self.recv_msg()
@@ -471,7 +479,6 @@ def togglePower(icon, item):
     global powerState
     if powerState:
         powerState = False
-        #TODO: push command to set all LEDs to 0 brightness
     else:
         powerState = True
 
@@ -490,13 +497,18 @@ def setCurrentMode(mode):
 
 def exitController():
     global closeLightThread
+    global closeCommThread
     
-    icon.stop()
-    closeLightThread = True
-    commandBuffer.put("close")
+    commandBuffer.put("disconnect")
+    time.sleep(0.1)
+
+    closeCommThread = True
     commThread.join
+    closeLightThread = True
     lightThread.join
-    quit()
+
+    icon.stop()
+    sys.exit()
 
 icon = pystray.Icon('LED Control')
 
@@ -509,7 +521,6 @@ icon.menu = menu(
         text = 'Power',
         action = togglePower,
         checked = lambda item: powerState),
-    
     item(
         'Responsive',
         menu(
