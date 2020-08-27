@@ -13,6 +13,7 @@ notify = ToastNotifier()
 
 #lib for audio processing
 from Realtime_pyaudio_ftt.src.stream_analyzer import Stream_Analyzer
+import colorsys
 
 import threading #multithreading
 import time #sleep command
@@ -27,6 +28,8 @@ import collections
 #constants---------------------------------------------------------------------
 LED_COUNT = 360 #60led/M 6M strip
 MAX_FPS = 30 #limit the number of frames sent to the server per second, lower fps can reduce delay 
+HOST = "pi-crglick.student.iastate.edu"
+PORT = 55555
 
 #global variables--------------------------------------------------------------
 
@@ -46,7 +49,7 @@ frameCount = 0
 animationSpeed = 50
 powerState = True
 #FIXME: server crashes when starting on movie theater
-currentMode = "simpleSolid"
+currentMode = "test1"
 
 #solid user color values
 R = 255
@@ -252,7 +255,7 @@ class LightThread (threading.Thread):
         self.frequencyBins = 300
         self.minAmp = 0.01 #the minimum amplitude allowed for visualization (to not visualize noise)
         self.triggerPercent = 6 #if amp > average amp * triggerPercent, then trigger a visualization event
-        self.numAudioHistory = 60 # the number of frames to hold in memory when calculating average
+        self.numAudioHistory = 30 # the number of frames to hold in memory when calculating average
 
         self.audio = Stream_Analyzer(
                 device = 6,               # Manually play with this (int) if you don't see anything
@@ -288,7 +291,7 @@ class LightThread (threading.Thread):
             #only proccess and push commands when connected and powered on
             if isConnected and powerState:
                 startTime = time.time()
-
+    #------------------non-responsive modes-------------
                 if(currentMode=='simpleSolid'):
                     for led in range(LED_COUNT):
                         currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
@@ -310,6 +313,20 @@ class LightThread (threading.Thread):
 
                         for i in range(0, LED_COUNT, 10):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
+                elif(currentMode == 'rainbow'):
+                    for led in range(LED_COUNT):
+                        #set the hue to a value between 0 and 1, hue is based on led number
+                        #and frameCount to get a rainbow animation
+                        #speed is controlled by multiplying frame count by animation speed
+                        #size of rainbow is controlled by the constant on LED_COUNT
+                        hue = (led + (frameCount * animationSpeed / 10))/(LED_COUNT / 2)
+                        hue = hue - int(hue)
+
+                        (r,g,b) = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                        red, green, blue = int(255 *r), int(255 * g), int(255 * b)
+                        currentFrame[led] = [bytes([red]), bytes([green]), bytes([blue])]
+                    frameBuffer.put(currentFrame)
+    #-----------Responsive modes----------------
                 elif(currentMode=='test1'):
                     PulseManager.update()
                     raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
@@ -319,7 +336,7 @@ class LightThread (threading.Thread):
 
                         if(amp>self.minAmp):
                             if(amp > averageBinAmp[freq] * self.triggerPercent):
-                                pulseList.insert(0, Pulse(0, 2, 2, max(5, 30 * averageBinAmp[freq]/amp), False, *(self.num_to_rgb(freq, self.frequencyBins/2))))
+                                pulseList.insert(0, Pulse(0, 2, 10 * averageBinAmp[freq]/amp, 5, False, *(self.num_to_rgb(freq, self.frequencyBins/2))))
 
                     #push current data to history and recalculate averages
                     history.append(binned_fft)
@@ -557,10 +574,15 @@ icon.menu = menu(
                 action=setCurrentMode('movieTheater'),
                 checked=checkMode('movieTheater')
             ),
-             item(
+            item(
                 text = 'Breathe',
                 action=setCurrentMode('breathe'),
                 checked=checkMode('breathe')
+            ),
+            item(
+                text = 'Rainbow',
+                action=setCurrentMode('rainbow'),
+                checked=checkMode('rainbow')
             )
         )
     ),
@@ -575,7 +597,7 @@ icon.menu = menu(
 )
 
 #create the threads for communication and light processing
-commThread = CommThread(1, "commThread", "101fdisplay.lib.iastate.edu",55555)
+commThread = CommThread(1, "commThread", HOST,PORT)
 lightThread = LightThread(2, "lightThread", commThread)
 
 #start the threads

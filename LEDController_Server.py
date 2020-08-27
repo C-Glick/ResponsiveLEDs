@@ -16,7 +16,7 @@ import struct
 import time #wait control
 
 #constant values------------------------------------------------------------------------
-HOST = '101fdisplay.lib.iastate.edu' #server ip or hostname
+HOST = 'pi-crglick.student.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
 MAX_FPS = 30 #Max FPS to run at
 MAX_BUFFER = 30
