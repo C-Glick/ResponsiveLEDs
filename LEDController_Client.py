@@ -36,7 +36,7 @@ PORT = 55555
 #frames to be sent to the server
 frameBuffer = queue.Queue(30)
 #the current working frame
-currentFrame =  [[0 for i in range(3)] for j in range(LED_COUNT)]
+currentFrame =  [[b'\x00' for i in range(3)] for j in range(LED_COUNT)]
 pulseList = [] #list to hold pulses 
 #to send frame, frameBuffer.put(currentFrame)
 #TODO: buffer to send commands such as reboot.
@@ -49,7 +49,7 @@ frameCount = 0
 animationSpeed = 50
 powerState = True
 #FIXME: server crashes when starting on movie theater
-currentMode = "test1"
+currentMode = "waveform"
 
 #solid user color values
 R = 255
@@ -105,6 +105,7 @@ class CommThread (threading.Thread):
         #empty buffer
         commandBuffer = queue.Queue(0)
         try:
+            #TODO: try to reconnect sooner after error, every 5 seconds? display the message every minute if cannot connect
             self.socket.connect((self.host, self.port))
             isConnected = True
         except ConnectionRefusedError as e:
@@ -190,7 +191,6 @@ class Pulse ():
         self.G = G
         self.B = B
     
-    #TODO: switch drawing to the pulse not the pulse manager
     def draw(self):
         for led in range(self.length):
             led = int(led + self.position)
@@ -323,11 +323,11 @@ class LightThread (threading.Thread):
                         hue = hue - int(hue)
 
                         (r,g,b) = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-                        red, green, blue = int(255 *r), int(255 * g), int(255 * b)
+                        red, green, blue = int(r * ledBrightness), int(g * ledBrightness), int(b * ledBrightness)
                         currentFrame[led] = [bytes([red]), bytes([green]), bytes([blue])]
                     frameBuffer.put(currentFrame)
     #-----------Responsive modes----------------
-                elif(currentMode=='test1'):
+                elif(currentMode=='pulse'):
                     PulseManager.update()
                     raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
 
@@ -348,12 +348,39 @@ class LightThread (threading.Thread):
                             sum += history[frame][freq]
                         averageBinAmp[freq] = sum/self.numAudioHistory
 
-                elif(currentMode=='test2'):
-                    PulseManager.update()
-                    if(frameCount % 300 == 0):
-                        pulseList.insert(0, Pulse(position=20, length=2, velocity=4, fadeRate=10, loop=True, R=255, G=0, B=0))
+                elif(currentMode=='waveform'):
+                    startLED = 0
+                    endLED = 200
 
-                       
+                    raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
+                    #push current data to history and recalculate averages
+                    history.append(binned_fft)
+
+                    #map amplitude to brightness
+                    maxAmp = max(binned_fft)
+                    maxBrightness = 255
+                    minAmp = min(binned_fft)
+                    minBrightness = -5
+
+                    for freq in range(len(binned_fft)):
+                        amp= binned_fft[freq]
+                        led = startLED + int(freq * (endLED - startLED) / len(binned_fft))
+
+                        #translate amplitude to led brightness, max amp = max brightness, min amp = minBrightness
+                        #floor of 0
+                        #y=(y2-y1)/(x2-x1) * (x - x2) + y2
+                        audioBrightness = max(0, ((maxBrightness - minBrightness) / (maxAmp - minAmp) * (amp - maxAmp) + maxBrightness) )
+
+                        if(amp>self.minAmp):
+                            currentFrame[led] = [bytes([int((R * ledBrightness * audioBrightness / 65025) )]),
+                                                 bytes([int((G * ledBrightness * audioBrightness / 65025) )]),
+                                                 bytes([int((B * ledBrightness * audioBrightness / 65025) )])]
+                        else:
+                            currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+
+                    frameBuffer.put(currentFrame)
+
                 endTime = time.time()
                 
                 #framerate cap
@@ -542,14 +569,14 @@ icon.menu = menu(
         'Responsive',
         menu(
             item(
-                text = 'test1',
-                action = setCurrentMode('test1'),
-                checked= checkMode('test1')
+                text = 'Pulse ',
+                action = setCurrentMode('pulse'),
+                checked= checkMode('pulse')
             ),
             item(
-                text = 'test2',
-                action = setCurrentMode('test2'),
-                checked = checkMode('test2')
+                text = 'Waveform',
+                action = setCurrentMode('waveform'),
+                checked = checkMode('waveform')
             )
         )
     ),

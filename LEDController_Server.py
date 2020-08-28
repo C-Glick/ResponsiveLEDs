@@ -18,7 +18,7 @@ import time #wait control
 #constant values------------------------------------------------------------------------
 HOST = 'pi-crglick.student.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
-MAX_FPS = 30 #Max FPS to run at
+MAX_FPS = 60 #Max FPS to run at
 MAX_BUFFER = 30
 #led strip variables and initialization
 LED_COUNT = 360       # Number of LED pixels.
