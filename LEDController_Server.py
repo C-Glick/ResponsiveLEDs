@@ -21,7 +21,7 @@ PORT = 55555 #open port for communication, 1000+ recommended
 MAX_FPS = 60 #Max FPS to run at
 MAX_BUFFER = 30
 #led strip variables and initialization
-LED_COUNT = 360       # Number of LED pixels.
+LED_COUNT = 322       # Number of LED pixels.
 LED_PIN = 18          # GPIO pin connected to the pixels (18 uses PWM!).
 # LED_PIN = 10        # GPIO pin connected to the pixels (10 uses SPI /dev/spidev0.0).
 LED_FREQ_HZ = 800000  # LED signal frequency in hertz (usually 800khz)

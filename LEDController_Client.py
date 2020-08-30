@@ -26,7 +26,11 @@ import numpy as np
 import collections
 
 #constants---------------------------------------------------------------------
-LED_COUNT = 360 #60led/M 6M strip
+LED_COUNT = 322 #60led/M 6M strip
+RIGHT_SECTION = [0, 35]
+TOP_SECTION = [36, 161]
+LEFT_SECTION = [162, 197]
+BOTTOM_SECTION = [198, 322]
 MAX_FPS = 30 #limit the number of frames sent to the server per second, lower fps can reduce delay 
 HOST = "pi-crglick.student.iastate.edu"
 PORT = 55555
@@ -49,13 +53,12 @@ frameCount = 0
 animationSpeed = 50
 powerState = True
 #FIXME: server crashes when starting on movie theater
-currentMode = "waveform"
+currentMode = "leftSolid"
 
 #solid user color values
 R = 255
 G = 0
 B = 0
-
 
 
 #thread for communication 
@@ -297,6 +300,98 @@ class LightThread (threading.Thread):
                         currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                     frameBuffer.put(currentFrame)
                     #time.sleep(.1)
+                elif(currentMode=='topSolid'):
+                    #before section
+                    for led in range(0, TOP_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(TOP_SECTION[0], TOP_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(TOP_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='bottomSolid'):
+                    #before section
+                    for led in range(0, BOTTOM_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(BOTTOM_SECTION[0], BOTTOM_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(BOTTOM_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='topAndBottomSolid'):
+                    #before section
+                    for led in range(0, TOP_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(TOP_SECTION[0], TOP_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #between sections
+                    for led in range(TOP_SECTION[1], BOTTOM_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(BOTTOM_SECTION[0], BOTTOM_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(BOTTOM_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='leftSolid'):
+                    #before section
+                    for led in range(0, LEFT_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(LEFT_SECTION[0], LEFT_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(LEFT_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='rightSolid'):
+                    #before section
+                    for led in range(0, RIGHT_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(RIGHT_SECTION[0], RIGHT_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(RIGHT_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='sidesSolid'):
+                    #before section
+                    for led in range(0, RIGHT_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(RIGHT_SECTION[0], RIGHT_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #between sections
+                    for led in range(RIGHT_SECTION[1], LEFT_SECTION[0]):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    for led in range(LEFT_SECTION[0], LEFT_SECTION[1]):
+                        currentFrame[led] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
+                    
+                    #after section
+                    for led in range(LEFT_SECTION[1], LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+                    frameBuffer.put(currentFrame)
                 elif(currentMode=='breathe'):
                     for led in range(LED_COUNT):
                         breatheBrightness = 0.5 + 0.5 * math.cos(animationSpeed/300 * frameCount)
@@ -336,7 +431,7 @@ class LightThread (threading.Thread):
 
                         if(amp>self.minAmp):
                             if(amp > averageBinAmp[freq] * self.triggerPercent):
-                                pulseList.insert(0, Pulse(0, 2, 10 * averageBinAmp[freq]/amp, 5, False, *(self.num_to_rgb(freq, self.frequencyBins/2))))
+                                pulseList.insert(0, Pulse(0, 2, 2, max(2, 10 * averageBinAmp[freq]/amp), False, *(self.num_to_rgb(freq, self.frequencyBins/2))))
 
                     #push current data to history and recalculate averages
                     history.append(binned_fft)
@@ -346,11 +441,15 @@ class LightThread (threading.Thread):
                         sum=0
                         for frame in range(len(history)):
                             sum += history[frame][freq]
-                        averageBinAmp[freq] = sum/self.numAudioHistory
+                        averageBinAmp[freq] = sum/len(history)
 
                 elif(currentMode=='waveform'):
                     startLED = 0
-                    endLED = 200
+                    endLED = 60
+
+                    #clear frame
+                    for led in range(LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
 
                     raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
                     #push current data to history and recalculate averages
@@ -375,6 +474,53 @@ class LightThread (threading.Thread):
                             currentFrame[led] = [bytes([int((R * ledBrightness * audioBrightness / 65025) )]),
                                                  bytes([int((G * ledBrightness * audioBrightness / 65025) )]),
                                                  bytes([int((B * ledBrightness * audioBrightness / 65025) )])]
+                        else:
+                            currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+
+
+                    frameBuffer.put(currentFrame)
+                elif(currentMode=='rainbowWaveform'):
+                    startLED = 0
+                    endLED = 200
+
+                    #clear frame
+                    for led in range(LED_COUNT):
+                        currentFrame[led] = [b'\x00', b'\x00', b'\x00']
+                  
+
+                    raw_fftx, raw_fft, binned_fftx, binned_fft = self.audio.get_audio_features()
+                    #push current data to history and recalculate averages
+                    history.append(binned_fft)
+
+                    #map amplitude to brightness
+                    maxAmp = max(binned_fft)
+                    maxBrightness = 255
+                    minAmp = min(binned_fft)
+                    minBrightness = -5
+
+                    for freq in range(len(binned_fft)):
+                        amp= binned_fft[freq]
+                        led = startLED + int(freq * (endLED - startLED) / len(binned_fft))
+                        
+                        if(amp>self.minAmp):
+                            #translate amplitude to led brightness, max amp = max brightness, min amp = minBrightness
+                            #floor of 0
+                            #y=(y2-y1)/(x2-x1) * (x - x2) + y2
+                            audioBrightness = max(0, ((maxBrightness - minBrightness) / (maxAmp - minAmp) * (amp - maxAmp) + maxBrightness) )
+
+                            #calculate colors
+                            #set the hue to a value between 0 and 1, hue is based on led number
+                            #and frameCount to get a rainbow animation
+                            #speed is controlled by multiplying frame count by animation speed
+                            #size of rainbow is controlled by the constant on LED_COUNT
+                            hue = (led + (frameCount * animationSpeed / 10))/(LED_COUNT / 2)
+                            hue = hue - int(hue)
+
+                            (r,g,b) = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+                        
+                            currentFrame[led] = [bytes([int((r * ledBrightness * audioBrightness / 255) )]),
+                                                 bytes([int((g * ledBrightness * audioBrightness / 255) )]),
+                                                 bytes([int((b * ledBrightness * audioBrightness / 255) )])]
                         else:
                             currentFrame[led] = [b'\x00', b'\x00', b'\x00']
 
@@ -577,6 +723,11 @@ icon.menu = menu(
                 text = 'Waveform',
                 action = setCurrentMode('waveform'),
                 checked = checkMode('waveform')
+            ),
+            item(
+                text = 'Rainbow Waveform',
+                action = setCurrentMode('rainbowWaveform'),
+                checked = checkMode('rainbowWaveform')
             )
         )
     ),
@@ -584,18 +735,40 @@ icon.menu = menu(
         'Non-Responsive',
         menu(
             item(
-                text = 'Set Color',
-                action = setColorThreadStart
-            ),
-            item(
-                text = 'Set Speed',
-                action = setSpeedThreadStart
-            ),
-            item(
                 text = 'Solid Color',
                 action=setCurrentMode('simpleSolid'),
                 checked=checkMode('simpleSolid')
             ),
+            item(
+                text = 'Top Solid',
+                action=setCurrentMode('topSolid'),
+                checked=checkMode('topSolid')
+            ),
+            item(
+                text = 'Bottom Solid',
+                action=setCurrentMode('bottomSolid'),
+                checked=checkMode('bottomSolid')
+            ),
+            item(
+                text = 'Top and Bottom Solid',
+                action=setCurrentMode('topAndBottomSolid'),
+                checked=checkMode('topAndBottomSolid')
+            ), 
+            item(
+                text = 'Left Solid',
+                action=setCurrentMode('leftSolid'),
+                checked=checkMode('leftSolid')
+            ),
+            item(
+                text = 'Right Solid',
+                action=setCurrentMode('rightSolid'),
+                checked=checkMode('rightSolid')
+            ),
+            item(
+                text = 'Sides Solid',
+                action=setCurrentMode('sidesSolid'),
+                checked=checkMode('sidesSolid')
+            ),             
             item(
                 text = 'Movie Theater',
                 action=setCurrentMode('movieTheater'),
@@ -614,8 +787,16 @@ icon.menu = menu(
         )
     ),
     item(
-        text = 'Brightness',
+        text = 'Set Brightness',
         action = setBrightnessThreadStart
+    ),
+    item(
+        text = 'Set Color',
+        action = setColorThreadStart
+    ),
+    item(
+        text = 'Set Speed',
+        action = setSpeedThreadStart
     ),
     item(
         text = 'Exit',
