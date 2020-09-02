@@ -817,7 +817,7 @@ def exitController():
     lightThread.join
 
     icon.stop()
-    sys.exit()
+    os._exit(0)
 
 icon = pystray.Icon('LED Control')
 
