@@ -3,6 +3,9 @@ import pystray #lib for system tray icon
 from pystray import Icon as icon, Menu as menu, MenuItem as item
 from PIL import Image, ImageDraw
 import sys
+import configparser #library for config file handling
+import os.path #lib for checking if config file exists
+from os import path
 #lib for GUI window
 import tkinter
 from tkinter import Tk, DoubleVar, Scale, CENTER, HORIZONTAL, Button
@@ -26,14 +29,15 @@ import numpy as np
 import collections
 
 #constants---------------------------------------------------------------------
-LED_COUNT = 322 #60led/M 6M strip
-RIGHT_SECTION = [0, 35]
-TOP_SECTION = [36, 161]
-LEFT_SECTION = [162, 197]
-BOTTOM_SECTION = [198, 322]
-MAX_FPS = 30 #limit the number of frames sent to the server per second, lower fps can reduce delay 
-HOST = "pi-crglick.student.iastate.edu"
-PORT = 55555
+#values are set from the config file
+LED_COUNT = 0
+RIGHT_SECTION = 0
+TOP_SECTION = 0
+LEFT_SECTION = 0
+BOTTOM_SECTION = 0
+MAX_FPS = 0 #limit the number of frames sent to the server per second, lower fps can reduce delay 
+HOST = ""
+PORT = 0
 
 #global variables--------------------------------------------------------------
 
@@ -48,17 +52,133 @@ commandBuffer = queue.Queue(0)
 closeLightThread = False  #set this to true to close the LightThread
 closeCommThread = False #set this to true to close the commThread
 isConnected = False #true if connected to the server
-ledBrightness = 255
+ledBrightness = 0
 frameCount = 0
-animationSpeed = 50
+animationSpeed = 0
 powerState = True
-#FIXME: server crashes when starting on movie theater
-currentMode = "leftSolid"
+currentMode = ""
 
 #solid user color values
-R = 255
+R = 0
 G = 0
 B = 0
+
+#config-----------------------------------------------------------------------
+#check if config file exists, if it does, read from it and set variables accordingly
+#if does not exist, creates one with default settings values
+def readConfig():
+
+    global LED_COUNT
+    global currentFrame
+    global HOST
+    global PORT
+    global MAX_FPS
+    global RIGHT_SECTION
+    global TOP_SECTION
+    global LEFT_SECTION
+    global BOTTOM_SECTION
+    global ledBrightness
+    global animationSpeed
+    global currentMode
+    global R
+    global G
+    global B
+
+
+    config = configparser.ConfigParser(allow_no_value=True)
+
+    
+    if(path.exists("config.ini")):
+        #load config file
+        config.read("config.ini")
+
+        bothConfig = config['CHANGE_ON_SERVER_TOO']
+
+        LED_COUNT = int(bothConfig['led_count'])
+        currentFrame =  [[b'\x00' for i in range(3)] for j in range(LED_COUNT)]
+        HOST = bothConfig['host']
+        PORT = int(bothConfig['port'])
+
+        clientConfig = config['CLIENT_ONLY_SETTINGS']
+
+        MAX_FPS = int(clientConfig['max_fps'])
+        RIGHT_SECTION = [int(clientConfig['right_section_start']),int(clientConfig['right_section_end'])]
+        TOP_SECTION = [int(clientConfig['top_section_start']),int(clientConfig['top_section_end'])]
+        LEFT_SECTION = [int(clientConfig['left_section_start']),int(clientConfig['left_section_end'])]
+        BOTTOM_SECTION = [int(clientConfig['bottom_section_start']),int(clientConfig['bottom_section_end'])]
+        ledBrightness = int(clientConfig['led_brightness'])
+        animationSpeed = float(clientConfig['animation_speed'])
+        currentMode = clientConfig['current_mode']
+        R = int(clientConfig['r'])
+        G = int(clientConfig['g'])
+        B = int(clientConfig['b'])
+
+    else:
+        #write default settings to config.ini
+        config['CHANGE_ON_SERVER_TOO'] = {
+            '# these values need to be changed on both the client and the server side': None,
+            'led_count': 322,
+            'host': 'pi-crglick.student.iastate.edu',
+            'port' : 55555,
+        }
+
+        config['CLIENT_ONLY_SETTINGS'] = {
+            'max_fps': 30,
+            'right_section_start': 0,
+            'right_section_end': 35,
+            'top_section_start': 36,
+            'top_section_end': 161,
+            'left_section_start': 162,
+            'left_section_end': 197,
+            'bottom_section_start': 198,
+            'bottom_section_end': 322,
+            'led_brightness': 255,
+            'animation_speed': 50,
+            'current_mode': 'simpleSolid',
+            '# Current user color, 0-255': None,
+            'r': 255,
+            'g': 0,
+            'b': 0
+            
+        }
+        with open("config.ini", 'w') as configFile:
+            config.write(configFile)
+        #load default settings
+        readConfig()
+readConfig()
+
+#update the config file with the current settings
+def updateConfig():
+    config = configparser.ConfigParser(allow_no_value=True)
+
+    config['CHANGE_ON_SERVER_TOO'] = {
+        '# these values need to be changed on both the client and the server side': None,
+        'led_count': LED_COUNT,
+        'host': HOST,
+        'port' : PORT,
+    }
+
+    config['CLIENT_ONLY_SETTINGS'] = {
+        'max_fps': int(MAX_FPS),
+        'right_section_start': RIGHT_SECTION[0],
+        'right_section_end': RIGHT_SECTION[1],
+        'top_section_start': TOP_SECTION[0],
+        'top_section_end': TOP_SECTION[1],
+        'left_section_start': LEFT_SECTION[0],
+        'left_section_end': LEFT_SECTION[1],
+        'bottom_section_start': BOTTOM_SECTION[0],
+        'bottom_section_end': BOTTOM_SECTION[1],
+        'led_brightness': int(ledBrightness),
+        'animation_speed': animationSpeed,
+        'current_mode': currentMode,
+        '# Current user color, 0-255': None,
+        'r': int(R),
+        'g': int(G),
+        'b': int(B)
+        
+    }
+    with open("config.ini", 'w') as configFile:
+        config.write(configFile)
 
 
 #thread for communication 
@@ -399,14 +519,14 @@ class LightThread (threading.Thread):
                     frameBuffer.put(currentFrame)
                                  
                 elif(currentMode=='movieTheater'):
-                    for q in range(10):
-                        for i in range(0, LED_COUNT, 10):
+                    for q in range(14):
+                        for i in range(0, LED_COUNT, 14):
                             currentFrame[i+q] = [bytes([int(R*ledBrightness/255)]), bytes([int(G*ledBrightness/255)]), bytes([int(B*ledBrightness/255)])]
                         frameBuffer.put(currentFrame)
                         #(wait time, 0.15s - 0s ) + specific pattern wait time 
                         time.sleep((0.10-(animationSpeed/1000)) +0.01 )
 
-                        for i in range(0, LED_COUNT, 10):
+                        for i in range(0, LED_COUNT, 14):
                             currentFrame[i+q] = [b'\x00', b'\x00', b'\x00']
                 elif(currentMode == 'rainbow'):
                     for led in range(LED_COUNT):
@@ -572,9 +692,7 @@ class SetColorThread (threading.Thread):
             R = red.get()
             G = green.get()
             B = blue.get()
-            print(R)
-            print(G)
-            print(B)      
+            updateConfig()     
 
         scale = Scale( root, variable = red, label="Red Value", orient=HORIZONTAL, to=255, length=255)
         scale.pack(anchor = CENTER)
@@ -607,7 +725,7 @@ class SetBrightnessThread (threading.Thread):
         def updateBrightness():
             global ledBrightness
             ledBrightness = brightness.get()
-            print(ledBrightness)      
+            updateConfig()     
 
         scale = Scale( root, variable = brightness, label="LED Brightness", orient=HORIZONTAL, to=255, length=255)
         scale.pack(anchor = CENTER)
@@ -636,6 +754,7 @@ class SetSpeedThread (threading.Thread):
         def updateSpeed():
             global animationSpeed
             animationSpeed = speed.get()
+            updateConfig()
 
         scale = Scale( root, variable = speed, label="Animation Speed", orient=HORIZONTAL, from_=1, to=100, length=255, resolution=0.1)
         scale.pack(anchor = CENTER)
@@ -646,8 +765,7 @@ class SetSpeedThread (threading.Thread):
        
        
 
-#<<<<<<<<<<<<<<<main program initialization>>>>>>>>>>>>>>>>>>>
-
+#main program initialization-----------------------------------------------
 
 #creates a new thread to set the user color and starts it
 def setColorThreadStart():
@@ -683,6 +801,7 @@ def setCurrentMode(mode):
     def inner(item):
         global currentMode
         currentMode = mode
+        updateConfig()
     return inner
 
 def exitController():
