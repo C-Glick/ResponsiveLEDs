@@ -564,8 +564,8 @@ class LightThread (threading.Thread):
                         averageBinAmp[freq] = sum/len(history)
 
                 elif(currentMode=='waveform'):
-                    startLED = 0
-                    endLED = 60
+                    startLED = LEFT_SECTION[1]
+                    endLED = RIGHT_SECTION[0]
 
                     #clear frame
                     for led in range(LED_COUNT):
@@ -600,8 +600,8 @@ class LightThread (threading.Thread):
 
                     frameBuffer.put(currentFrame)
                 elif(currentMode=='rainbowWaveform'):
-                    startLED = 0
-                    endLED = 200
+                    startLED = LEFT_SECTION[1]
+                    endLED = RIGHT_SECTION[0]
 
                     #clear frame
                     for led in range(LED_COUNT):
