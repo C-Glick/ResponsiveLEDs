@@ -11,4 +11,3 @@ Audio and light processing is done on the host device and individual frames are 
 - Fire animation
 - Day/night animation based on time of day
 - Animation based on weather
->>>>>>> eab6e183284327d006b928ff39c1b785337907dd
