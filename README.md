@@ -13,7 +13,7 @@ Audio and light processing is done on the host device and individual frames are 
 - Animation based on weather
 
 
-### Auto start with windows
+## Auto start with windows
 - use task scheduler 
 - new task
     - name = LED_Controller
