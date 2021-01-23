@@ -381,7 +381,7 @@ class LightThread (threading.Thread):
         self.numAudioHistory = 30 # the number of frames to hold in memory when calculating average
 
         self.audio = Stream_Analyzer(
-                device = 6,               # Manually play with this (int) if you don't see anything
+                device = 2,               # Manually play with this (int) if you don't see anything
                 rate   = None,               # Audio samplerate, None uses the default source settings
                 FFT_window_size_ms  = 60,    # Window size used for the FFT transform
                 updates_per_second  = 3000,  # How often to read the audio stream for new data
