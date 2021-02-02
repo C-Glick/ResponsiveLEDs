@@ -4,6 +4,7 @@
 #the light thread pulls data from the framebuffer, decodes it, and sets the led's accordingly
 #frames are sent as a 2d list, one list for each pixel containing 3, 8bit integers for the R, G, and B chan$
 #each frame is pickled before sent
+import pdb
 import socket
 import rpi_ws281x
 from rpi_ws281x import PixelStrip, Color
@@ -160,6 +161,7 @@ class CommThread (threading.Thread):
         print('Connected')
         connectedAnimation()
         #start communication loop
+        timeoutCount = 0
         while True:
             try:
                 data = recv_msg(self.conn)
@@ -168,6 +170,7 @@ class CommThread (threading.Thread):
                 #print('Recieved: ' + data)
 
                 if not (data == None):
+                    timeoutCount = 0
                     #TODO: pickleing is insecure, verify connection user before using any data from them
                     frame = pickle.loads(bytes(data))
                     if isinstance(frame, list):
@@ -175,10 +178,15 @@ class CommThread (threading.Thread):
                     elif isinstance(frame, str):
                         if "disconnect" in frame:
                             self.disconnect()
+                else:
+                    timeoutCount += 1
+                    #if timeout occurs x times, reset connection
+                    if timeoutCount >= 30:
+                        timeoutCount = 0
+                        self.disconnect()
 
                 if(frameBuffer.qsize() >= 0.9*MAX_BUFFER):
                     frameBuffer.get()
-
 
             #client disconnected, restart socket and wait for client
             except ConnectionResetError:

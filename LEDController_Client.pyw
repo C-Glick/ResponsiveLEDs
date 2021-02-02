@@ -36,6 +36,7 @@ TOP_SECTION = 0
 LEFT_SECTION = 0
 BOTTOM_SECTION = 0
 MAX_FPS = 0 #limit the number of frames sent to the server per second, lower fps can reduce delay 
+            #50 percent MAX_FPS for solid modes to reduce unneeded network usage
 HOST = ""
 PORT = 0
 
@@ -650,7 +651,10 @@ class LightThread (threading.Thread):
                 endTime = time.time()
                 
                 #framerate cap
-                time.sleep(max(0, 1/MAX_FPS-(endTime-startTime)))
+                if currentMode.find("Solid") != -1:
+                    time.sleep(max(0, 1/(MAX_FPS*0.5)-(endTime-startTime)))     #50 percent MAX_FPS for solid modes to reduce unneeded network usage
+                else:
+                    time.sleep(max(0, 1/MAX_FPS-(endTime-startTime)))
                 frameCount = frameCount + 1
 
             elif(isConnected and not powerState):
