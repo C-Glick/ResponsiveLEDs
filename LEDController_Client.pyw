@@ -192,9 +192,7 @@ class CommThread (threading.Thread):
         self.name = name
         self.host = host
         self.port = port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        #self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.socket = None
 
     def send_msg(self, msg):
         # Prefix each message with a 4-byte length (network byte order)
@@ -219,67 +217,81 @@ class CommThread (threading.Thread):
                 return None
             data.extend(packet)
         return data
-    
-    def run(self):
+
+    def socketConnect(self):
         global isConnected
-        global commandBuffer
+        #set socket object
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        #self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        self.socket.connect((self.host, self.port))
+        print("Connected")
+        isConnected = True
+        
+    def socketDisconnect(self):
+        global isConnected
+        self.socket.close()
         isConnected = False
+
+    def run(self):
+        global commandBuffer
         print ("Starting " + self.name)
         print ("Starting communication...")
         #empty buffer
         commandBuffer = queue.Queue(0)
-        try:
-            #TODO: try to reconnect sooner after error, every 5 seconds? display the message every minute if cannot connect
-            self.socket.connect((self.host, self.port))
-            isConnected = True
-        except ConnectionRefusedError as e:
-            notify.show_toast("Connection Refused",
-                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
-                   "IP: " + self.host + " Port: %d" %self.port,
-                   duration=20)
-            #FIXME: could cause stackoverflow
-            self.run()
-        except TimeoutError as e:
-            notify.show_toast("Connection Timeout",
-                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
-                   "IP: " + self.host + " Port: %d" %self.port,
-                   duration=20)
-            #FIXME: could cause stackoverflow
-            self.run()
         while not closeCommThread:
             try:
-                frame = frameBuffer.get()
-                data = pickle.dumps(frame)
-                
-                #send the frame to the server
-                self.send_msg(data)
-
+                if(isConnected): self.socketDisconnect()
+                self.socketConnect()
+            except ConnectionRefusedError as e:
+                notify.show_toast("Connection Refused",
+                    "Check that the server is running the python script and is reachable via WiFi.\n" + 
+                    "IP: " + self.host + " Port: %d" %self.port,
+                    duration=20, threaded=True)
+                continue
+            except TimeoutError as e:
+                notify.show_toast("Connection Timeout",
+                    "Check that the server is running the python script and is reachable via WiFi.\n" + 
+                    "IP: " + self.host + " Port: %d" %self.port,
+                    duration=20, threaded=True)
+                continue
+            except socket.gaierror as e:
+                notify.show_toast("Could Not Resolve Address",
+                    "Check that the server is running the python script and is reachable via WiFi.\n" + 
+                    "IP: " + self.host + " Port: %d" %self.port,
+                    duration=20, threaded=True)
+                continue
+            while not closeCommThread:
                 try:
-                    command = commandBuffer.get(False)
-                    data = pickle.dumps(command)
+                    frame = frameBuffer.get()
+                    data = pickle.dumps(frame)
+                    
+                    #send the frame to the server
                     self.send_msg(data)
-                except queue.Empty as e:
-                    pass
-                
-                #wait for a return message before sending the next command
-                #self.recv_msg()
-            #disconnected from server
-            except (ConnectionAbortedError, ConnectionResetError) as e:
-                print("disconnected from server")
-                self.socket.close()
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                isConnected = False
 
-                notify.show_toast("Disconnected From Sever",
-                   "Check that the server is running the python script and is reachable via WiFi.\n" + 
-                   "IP: " + self.host + " Port: %d" %self.port,
-                   duration=20)
+                    try:
+                        command = commandBuffer.get(False)
+                        data = pickle.dumps(command)
+                        self.send_msg(data)
+                    except queue.Empty as e:
+                        pass
+                    
+                    #wait for a return message before sending the next command
+                    #self.recv_msg()
+                #disconnected from server
+                except (ConnectionAbortedError, ConnectionResetError) as e:
+                    print("Disconnected from server")
+                    self.socketDisconnect()
 
-                self.run()
+                    notify.show_toast("Disconnected From Sever",
+                    "Check that the server is running the python script and is reachable via WiFi.\n" + 
+                    "IP: " + self.host + " Port: %d" %self.port,
+                    duration=20, threaded=True)
 
-        self.socket.close()
-        isConnected = False
+                    break
+
+        self.socketDisconnect()
         print ("Exiting " + self.name)
 
 #Represents a pulse that travels down the strip

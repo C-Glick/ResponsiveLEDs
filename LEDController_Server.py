@@ -15,10 +15,12 @@ import threading #multithreading
 import pickle #serializing and deserializing data sent
 import struct
 import time #wait control
+import select #only receive data when ready
 
 #constant values------------------------------------------------------------------------
 HOST = 'pi-crglick.student.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
+TIMEOUT = 5.0 #number of seconds to wait for a message before resetting connection, to low and can reset prematurely
 MAX_FPS = 60 #Max FPS to run at
 MAX_BUFFER = 30
 #led strip variables and initialization
@@ -88,17 +90,18 @@ def recv_msg(sock):
         raise e
 
 def recvall(sock, n):
-    try:
-        # Helper function to recv n bytes or return None if EOF is hit
-        data = bytearray()
-        while len(data) < n:
+    # Helper function to recv n bytes or return None if EOF is hit
+    data = bytearray()
+    while len(data) < n:
+        ready = select.select([sock], [], [], TIMEOUT)
+        if ready[0]:    #if the first item in the list exists, data is ready
             packet = sock.recv(n - len(data))
-            if not packet:
-                return None
-            data.extend(packet)
-        return data
-    except Exception as e:
-        raise e
+        else:           #list is empty, no data within timeout period
+            print("recvall timeout")
+            return None
+        data.extend(packet)
+    return data
+   
 
 class CommThread (threading.Thread):
     def __init__(self, threadID, name, host, port):
@@ -161,7 +164,6 @@ class CommThread (threading.Thread):
         print('Connected')
         connectedAnimation()
         #start communication loop
-        timeoutCount = 0
         while True:
             try:
                 data = recv_msg(self.conn)
@@ -179,12 +181,10 @@ class CommThread (threading.Thread):
                         if "disconnect" in frame:
                             self.disconnect()
                 else:
-                    timeoutCount += 1
-                    #if timeout occurs x times, reset connection
-                    if timeoutCount >= 30:
-                        timeoutCount = 0
-                        self.disconnect()
+                    #if data returns false, timeout has occurred, reset connection
+                    self.disconnect()
 
+                    #throw out incoming frames if the buffer is 90% full or more
                 if(frameBuffer.qsize() >= 0.9*MAX_BUFFER):
                     frameBuffer.get()
 
