@@ -20,7 +20,7 @@ import select #only receive data when ready
 #constant values------------------------------------------------------------------------
 HOST = 'pi-crglick.student.iastate.edu' #server ip or hostname
 PORT = 55555 #open port for communication, 1000+ recommended
-TIMEOUT = 5.0 #number of seconds to wait for a message before resetting connection, to low and can reset prematurely
+TIMEOUT = 8.0 #number of seconds to wait for a message before resetting connection, to low and can reset prematurely
 MAX_FPS = 60 #Max FPS to run at
 MAX_BUFFER = 30
 #led strip variables and initialization
